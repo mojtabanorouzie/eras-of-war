@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Eras of War">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a2b8c" />
+      <stop offset="1" stop-color="#140e38" />
+    </linearGradient>
+    <linearGradient id="blade" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#c88c10" />
+      <stop offset="1" stop-color="#fff1bd" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)" />
+  <g stroke-linecap="round">
+    <path d="M17 51 L47 15" stroke="url(#blade)" stroke-width="6" />
+    <path d="M47 51 L17 15" stroke="url(#blade)" stroke-width="6" />
+    <path d="M13 41 L25 47" stroke="#c88c10" stroke-width="3.5" />
+    <path d="M51 41 L39 47" stroke="#c88c10" stroke-width="3.5" />
+  </g>
+  <circle cx="32" cy="33" r="3.4" fill="#fff6d8" />
+</svg>

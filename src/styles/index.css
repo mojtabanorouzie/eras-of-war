@@ -1,0 +1,8 @@
+/* Self-hosted Persian font. Subsetted by unicode-range, so a browser only
+   downloads the script it actually renders. No external requests. */
+@import '@fontsource-variable/vazirmatn/index.css';
+
+@import './tokens.css';
+@import './base.css';
+@import './components.css';
+@import './screens.css';

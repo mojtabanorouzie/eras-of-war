@@ -1,0 +1,114 @@
+/* Design tokens. Everything visual in the game resolves back to this file. */
+:root {
+  /* Backdrop */
+  --bg-deep: #100c2a;
+  --bg: #171141;
+  --bg-raised: #241b57;
+  --bg-raised-2: #2e2470;
+  --line: #3d3184;
+  --line-soft: #342a72;
+
+  /* Ink */
+  --ink: #f6f3ff;
+  --ink-muted: #b6acdf;
+  --ink-dim: #8a80b8;
+
+  /* Accents */
+  --gold: #ffc63d;
+  --gold-deep: #b57f00;
+  --teal: #35e3a7;
+  --teal-deep: #0d7a58;
+  --rose: #ff6f7d;
+  --rose-deep: #a12234;
+  --violet: #9b7bff;
+
+  /* Eras */
+  --era-ancient: #d99456;
+  --era-medieval: #9aa0e8;
+  --era-industrial: #e8834a;
+  --era-modern: #4fcf90;
+  --era-future: #4fd8f2;
+
+  /* Shape */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-pill: 999px;
+
+  /* Space */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 22px;
+  --s-6: 30px;
+  --s-7: 42px;
+
+  /* Type */
+  --font: 'Vazirmatn Variable', Vazirmatn, 'Segoe UI', Tahoma, system-ui, sans-serif;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.15rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 2rem;
+  --fs-3xl: 2.6rem;
+
+  /* Depth */
+  --shadow-sm: 0 2px 0 rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 6px 18px rgba(6, 2, 26, 0.5);
+  --shadow-lg: 0 18px 44px rgba(6, 2, 26, 0.6);
+
+  /* Layout */
+  --shell: 520px;
+  --shell-wide: 940px;
+  --tap: 48px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--bg-deep);
+  /* Persian needs a little more room between lines than Latin. */
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Stop iOS from resizing text when the phone rotates. */
+  -webkit-text-size-adjust: 100%;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: var(--r-sm);
+}

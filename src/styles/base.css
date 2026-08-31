@@ -1,0 +1,203 @@
+/* App shell, typography and buttons. */
+
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background:
+    radial-gradient(120% 70% at 50% -10%, #3a2a86 0%, transparent 60%),
+    radial-gradient(90% 60% at 100% 100%, #1d2b6b 0%, transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+.shell {
+  width: 100%;
+  max-width: var(--shell);
+  margin-inline: auto;
+  padding: var(--s-4) var(--s-4) calc(var(--s-6) + env(safe-area-inset-bottom));
+}
+
+.shell--wide {
+  max-width: var(--shell-wide);
+}
+
+.screen {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  animation: screen-in 260ms ease-out both;
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.stack--tight {
+  gap: var(--s-2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.row--between {
+  justify-content: space-between;
+}
+
+.row--wrap {
+  flex-wrap: wrap;
+}
+
+/* ---------- Type ---------- */
+
+.title {
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.subtitle {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+/* No letter-spacing or uppercase anywhere: Persian is cursive and caseless. */
+.eyebrow {
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--ink-dim);
+}
+
+.body {
+  font-size: var(--fs-md);
+  line-height: 1.8;
+  color: var(--ink-muted);
+}
+
+.small {
+  font-size: var(--fs-sm);
+  line-height: 1.75;
+  color: var(--ink-muted);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  padding: var(--s-3) var(--s-5);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--bg-raised-2);
+  color: var(--ink);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 120ms ease, filter 120ms ease, background-color 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.55);
+  opacity: 0.55;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--lg {
+  min-height: 58px;
+  font-size: var(--fs-lg);
+  font-weight: 800;
+}
+
+.btn--primary {
+  background: linear-gradient(180deg, #ffd465, var(--gold));
+  color: #3a2500;
+  box-shadow: 0 4px 0 var(--gold-deep);
+}
+
+.btn--danger {
+  background: linear-gradient(180deg, #ff8a95, var(--rose));
+  color: #46060f;
+  box-shadow: 0 4px 0 var(--rose-deep);
+}
+
+.btn--go {
+  background: linear-gradient(180deg, #5cf0bd, var(--teal));
+  color: #04331f;
+  box-shadow: 0 4px 0 var(--teal-deep);
+}
+
+.btn--ghost {
+  background: transparent;
+  border: 2px solid var(--line);
+  box-shadow: none;
+}
+
+.btn--icon {
+  min-width: var(--tap);
+  padding: var(--s-2);
+}
+
+/* Sticky primary action: always reachable with one thumb. */
+.action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  gap: var(--s-3);
+  margin-top: var(--s-5);
+  padding: var(--s-3) 0 calc(var(--s-3) + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--bg) 62%, transparent);
+}
+
+.action-bar > * {
+  flex: 1;
+}
+
+.action-bar > .btn--icon {
+  flex: 0 0 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
