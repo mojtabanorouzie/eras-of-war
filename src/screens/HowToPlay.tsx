@@ -2,7 +2,6 @@ import { TopBar } from '../components/TopBar'
 import { TERRAINS } from '../data/terrains'
 import {
   ARMY_BASE_POWER,
-  LUCK_SWING,
   MATCH_BONUS,
   STARTING_COINS,
   VETERANCY_PER_WIN,
@@ -20,7 +19,7 @@ const STEPS = [
   },
   {
     title: 'بجنگ',
-    body: 'قدرت تو یعنی سپاهت، به‌اضافهٔ سلاحت، به‌اضافهٔ زمین، به‌اضافهٔ کمی شانس. هر کس قدرت بیشتری داشته باشد می‌برد.',
+    body: 'نبرد زنده است و دو دکمه دارد: حمله و جاخالی. دشمن به تو نزدیک می‌شود و پیش از هر ضربه یک لحظه می‌درخشد — همان لحظه جاخالی بده. وقتی حمله می‌کنی برای کسری از ثانیه بند می‌شوی، پس حرص زدن همان چیزی است که ضربه را می‌خورد.',
   },
   {
     title: 'سکه‌هایت را خرج کن',
@@ -45,7 +44,8 @@ export function HowToPlay({ onBack }: HowToPlayProps) {
         <section className="card stack">
           <h2 className="subtitle">تمام بازی در یک جمله</h2>
           <p className="body">
-            سلاحِ مناسبِ زمین، از سلاح گران‌قیمت بهتر است. تمام راهبرد بازی همین است.
+            سلاحِ مناسبِ زمین، از سلاح گران‌قیمت بهتر است — انتخاب تو تعیین می‌کند نبرد چقدر سخت
+            باشد، و بعد خودِ نبرد تعیین می‌کند چه کسی می‌برد.
           </p>
         </section>
 
@@ -82,18 +82,37 @@ export function HowToPlay({ onBack }: HowToPlayProps) {
               <span>سربازان کارکشته (هر برد)</span>
               <b className="num">{faSigned(VETERANCY_PER_WIN)}</b>
             </div>
-            <div className="breakdown__row">
-              <span>شانس</span>
-              <b className="num">± {faNumber(LUCK_SWING)}</b>
-            </div>
             <div className="breakdown__row breakdown__row--total">
-              <span style={{ color: 'var(--ink)' }}>قدرت نبرد</span>
+              <span style={{ color: 'var(--ink)' }}>توانِ رزمی</span>
               <b className="num">= جمع کل</b>
             </div>
           </div>
           <p className="small">
             سلاحی که روی زمینِ ساختِ خودش بجنگد، کامل {faSigned(MATCH_BONUS)} امتیاز می‌گیرد. این عدد
             معمولاً از فاصلهٔ بین یک سلاح ارزان و یک سلاح گران بزرگ‌تر است.
+          </p>
+        </section>
+
+        <section className="card stack stack--tight">
+          <h2 className="subtitle">سلاحت چطور می‌جنگد</h2>
+          <div className="breakdown">
+            <div className="breakdown__row">
+              <span>⚔️ توانِ رزمی</span>
+              <b className="num">آسیب هر ضربه</b>
+            </div>
+            <div className="breakdown__row">
+              <span>🎯 برد</span>
+              <b className="num">از چه فاصله‌ای می‌زنی</b>
+            </div>
+            <div className="breakdown__row">
+              <span>🏋️ وزن</span>
+              <b className="num">جاخالی چقدر سریع</b>
+            </div>
+          </div>
+          <p className="small">
+            تک‌تیرانداز از آن سرِ میدان می‌زند اما کند است؛ تبر باید بگذارد دشمن برسد و بعد پیاپی
+            بکوبد. تجهیزات سبک پشتِ‌سرِهم جاخالی می‌دهند، سنگین‌ها به‌سختی. هیچ سلاحی بی‌مصرف نیست —
+            هر کدام یک میدان دارند.
           </p>
         </section>
 

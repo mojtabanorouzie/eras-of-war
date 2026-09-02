@@ -94,10 +94,12 @@ export function Result({
                 </b>
               </div>
             ) : null}
-            <div className="breakdown__row">
-              <span>🎲 شانس</span>
-              <b className="num">{faSigned(outcome.player.luck)}</b>
-            </div>
+            {outcome.player.luck !== 0 ? (
+              <div className="breakdown__row">
+                <span>🎲 شانس</span>
+                <b className="num">{faSigned(outcome.player.luck)}</b>
+              </div>
+            ) : null}
             <div className="breakdown__row breakdown__row--total">
               <span style={{ color: 'var(--ink)' }}>قدرت تو</span>
               <b className="num" style={{ color: 'var(--teal)' }}>
@@ -119,10 +121,12 @@ export function Result({
               <span>{terrain.emoji} شناخت زمین</span>
               <b className="num">{faSigned(outcome.enemy.terrain)}</b>
             </div>
-            <div className="breakdown__row">
-              <span>🎲 شانس</span>
-              <b className="num">{faSigned(outcome.enemy.luck)}</b>
-            </div>
+            {outcome.enemy.luck !== 0 ? (
+              <div className="breakdown__row">
+                <span>🎲 شانس</span>
+                <b className="num">{faSigned(outcome.enemy.luck)}</b>
+              </div>
+            ) : null}
             <div className="breakdown__row breakdown__row--total">
               <span style={{ color: 'var(--ink)' }}>قدرت دشمن</span>
               <b className="num" style={{ color: 'var(--rose)' }}>

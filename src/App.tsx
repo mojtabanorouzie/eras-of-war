@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { playCue } from './game/audio'
-import { simulateBattle } from './game/battleEngine'
+import { reportDuel } from './game/combat'
+import type { DuelResult } from './game/duel'
 import { payoutFor } from './game/economy'
 import type { BattleSetup } from './game/progression'
 import {
@@ -26,12 +27,23 @@ type ScreenId = 'home' | 'armory' | 'prep' | 'battle' | 'result' | 'howto' | 'vi
 type ArmoryOrigin = 'home' | 'prep' | 'result'
 
 /**
- * A resolved battle held between the animation and the result screen.
+ * A battle that is being fought right now.
  *
- * The outcome is rolled the moment the player commits, so the animation and
- * the result always agree. It also carries its own setup and payout, because
- * winning advances `currentLevel` before the result screen renders — reading
- * them from live state would report the *next* battle.
+ * The kit is frozen at the moment the player commits, so buying or equipping
+ * something mid-fight could never change the fight in progress.
+ */
+interface PendingBattle {
+  setup: BattleSetup
+  weapon: Weapon
+  veterancy: number
+}
+
+/**
+ * A finished battle, held for the report screen.
+ *
+ * It carries its own setup and payout because winning advances `currentLevel`
+ * before the result screen renders — reading them from live state would report
+ * the *next* battle.
  */
 interface ResolvedBattle {
   setup: BattleSetup
@@ -44,7 +56,10 @@ export function App() {
   const { state, equip, buy, resolveBattle, toggleMute, resetGame } = useGame()
   const [screen, setScreen] = useState<ScreenId>('home')
   const [armoryOrigin, setArmoryOrigin] = useState<ArmoryOrigin>('home')
+  const [pending, setPending] = useState<PendingBattle | null>(null)
   const [resolved, setResolved] = useState<ResolvedBattle | null>(null)
+  // Bumped per battle so every fight mounts a fresh, empty duel.
+  const [battleKey, setBattleKey] = useState(0)
 
   // Each screen is a fresh page as far as the player is concerned.
   useEffect(() => {
@@ -60,32 +75,38 @@ export function App() {
 
   const startFight = useCallback(() => {
     if (!setup) return
-    const weapon = equippedWeapon(state)
-    const outcome = simulateBattle({
-      playerWeapon: weapon,
-      enemyWeapon: setup.enemy.weapon,
-      terrain: setup.terrain,
-      playerBonus: veterancyOf(state),
-      enemyBonus: setup.enemy.terrainEdge,
-    })
-    const payout = payoutFor(
-      setup.level,
-      outcome.winner === 'player',
-      state.clearedLevelIds.includes(setup.level.id),
-    )
-    setResolved({ setup, outcome, weapon, payout })
+    setPending({ setup, weapon: equippedWeapon(state), veterancy: veterancyOf(state) })
+    setBattleKey((key) => key + 1)
     playCue('tap')
     setScreen('battle')
   }, [setup, state])
 
-  const finishBattle = useCallback(() => {
-    if (!resolved) {
-      setScreen('home')
-      return
-    }
-    resolveBattle(resolved.setup.level, resolved.outcome.winner === 'player')
-    setScreen('result')
-  }, [resolved, resolveBattle])
+  /** The fight decides the outcome; this only writes it down. */
+  const finishBattle = useCallback(
+    (result: DuelResult) => {
+      if (!pending) {
+        setScreen('home')
+        return
+      }
+      const outcome = reportDuel(
+        pending.weapon,
+        pending.setup.terrain,
+        pending.veterancy,
+        pending.setup.enemy,
+        result,
+      )
+      const won = outcome.winner === 'player'
+      setResolved({
+        setup: pending.setup,
+        outcome,
+        weapon: pending.weapon,
+        payout: payoutFor(pending.setup.level, won, state.clearedLevelIds.includes(pending.setup.level.id)),
+      })
+      resolveBattle(pending.setup.level, won)
+      setScreen('result')
+    },
+    [pending, state.clearedLevelIds, resolveBattle],
+  )
 
   const continueFromResult = useCallback(() => {
     playCue('tap')
@@ -125,6 +146,7 @@ export function App() {
     playCue('tap')
     resetGame()
     setResolved(null)
+    setPending(null)
     setScreen('home')
   }, [resetGame])
 
@@ -167,11 +189,12 @@ export function App() {
         />
       ) : null}
 
-      {screen === 'battle' && resolved ? (
+      {screen === 'battle' && pending ? (
         <Battle
-          setup={resolved.setup}
-          outcome={resolved.outcome}
-          playerWeapon={resolved.weapon}
+          key={battleKey}
+          setup={pending.setup}
+          playerWeapon={pending.weapon}
+          veterancy={pending.veterancy}
           onFinished={finishBattle}
         />
       ) : null}
@@ -213,6 +236,7 @@ export function App() {
           onReset={() => {
             resetGame()
             setResolved(null)
+            setPending(null)
             setScreen('home')
           }}
           onBack={() => go('home')}

@@ -222,121 +222,155 @@
   color: var(--ink-muted);
 }
 
-/* ---------- Battle sequence ---------- */
+/* ---------- Battle ---------- */
 
 .battle {
   display: flex;
   flex: 1;
   flex-direction: column;
+  gap: var(--s-3);
   justify-content: center;
-  gap: var(--s-5);
 }
 
+/* ---- Health ---- */
+
+/*
+ * The document is RTL, so the first child of this row lands on the RIGHT —
+ * which is where the player's army stands. The bars sit over the side they
+ * belong to, and each drains away from its own outer edge.
+ */
+.hp {
+  display: flex;
+  gap: var(--s-3);
+}
+
+.hp__side {
+  flex: 1;
+  min-width: 0;
+}
+
+.hp__side--enemy {
+  text-align: left;
+}
+
+.hp__name {
+  display: block;
+  margin-bottom: 4px;
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hp__track {
+  height: 12px;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Scaled, not resized: this is written to sixty times a second. */
+.hp__fill {
+  display: block;
+  height: 100%;
+  transform: scaleX(1);
+  transform-origin: right;
+  background: linear-gradient(90deg, var(--teal-deep), var(--teal));
+  will-change: transform;
+}
+
+.hp__fill--enemy {
+  transform-origin: left;
+  background: linear-gradient(90deg, var(--rose), var(--rose-deep));
+}
+
+/* ---- The field ---- */
+
+/*
+ * The arena is deliberately wider than it is tall. The camera frames at least
+ * 22 world units across, so a squarer field would only add empty sky above the
+ * fight and shrink the armies inside it.
+ */
 .battle__field {
   position: relative;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: var(--s-2);
-  min-height: 132px;
+  flex: 0 1 auto;
+  aspect-ratio: 16 / 9;
+  min-height: 180px;
+  max-height: 44vh;
   overflow: hidden;
-  padding: var(--s-4) var(--s-2);
   border-radius: var(--r-lg);
   background: linear-gradient(150deg, var(--t1), var(--t2));
   box-shadow: var(--shadow-md);
 }
 
-.fighter {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  text-align: center;
-}
-
-.fighter__emoji {
-  font-size: 46px;
-  line-height: 1;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
-}
-
-.fighter__label {
-  font-size: var(--fs-xs);
-  font-weight: 800;
-  line-height: 1.4;
-  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.6);
-}
-
-/* The page is RTL, so your army stands on the right and marches in from there. */
-.fighter--player {
-  animation: march-from-start 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.fighter--enemy {
-  animation: march-from-end 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes march-from-start {
-  from {
-    opacity: 0;
-    transform: translateX(70px);
-  }
-}
-
-@keyframes march-from-end {
-  from {
-    opacity: 0;
-    transform: translateX(-70px);
-  }
-}
-
-.battle__spark {
-  font-size: 34px;
-  line-height: 1;
-  opacity: 0;
-}
-
-.battle__spark--on {
-  animation: spark 620ms ease-out both;
-}
-
-@keyframes spark {
-  0% {
-    opacity: 0;
-    transform: scale(0.2) rotate(-25deg);
-  }
-  40% {
-    opacity: 1;
-    transform: scale(1.5) rotate(10deg);
-  }
-  100% {
-    opacity: 0.9;
-    transform: scale(1.05) rotate(0deg);
-  }
-}
-
-.battle__flash {
+/*
+ * The WebGL field. Absolutely positioned, and the gradient below stays painted:
+ * the canvas is transparent until Three.js has a frame, and again if the GPU
+ * drops the context, so there is never a hole here. Layout stays with CSS — the
+ * renderer only ever sets the drawing-buffer size. The <canvas> inside is
+ * created and destroyed by BattleCanvas, not by React.
+ */
+.battle__stage {
   position: absolute;
   inset: 0;
-  background: #fff;
+  z-index: 0;
+}
+
+.battle__stage > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---- The field without WebGL ---- */
+
+/*
+ * Not decoration: the same fight, fully playable, for any device that cannot
+ * give us a GL context. Positions are written straight onto these nodes by
+ * DuelStage, so nothing here animates on its own.
+ */
+.battle__stage--dom {
+  z-index: 1;
+}
+
+.duelist {
+  position: absolute;
+  bottom: 24%;
+  left: 50%;
+  font-size: clamp(38px, 11vw, 60px);
+  line-height: 1;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+  transform: translate(-50%, 0);
+  will-change: transform, opacity;
+}
+
+/* The wind-up tell. Losing this makes the fight unreadable, so it glows hard. */
+.duelist.is-winding {
+  filter: drop-shadow(0 0 14px rgba(255, 179, 71, 0.95)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+}
+
+.duelist.is-quick {
+  filter: drop-shadow(0 0 16px rgba(255, 77, 77, 1)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+}
+
+.duel-shots {
+  position: absolute;
+  inset: 0;
+}
+
+.duel-shot {
+  position: absolute;
+  bottom: 33%;
+  left: 50%;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, #ffd97a 45%, rgba(255, 217, 122, 0) 72%);
   opacity: 0;
-  pointer-events: none;
-}
-
-.battle__flash--on {
-  animation: flash 420ms ease-out both;
-}
-
-@keyframes flash {
-  0% {
-    opacity: 0;
-  }
-  22% {
-    opacity: 0.65;
-  }
-  100% {
-    opacity: 0;
-  }
+  transform: translate(-50%, 0);
+  will-change: transform, opacity;
 }
 
 .battle__status {
@@ -345,6 +379,78 @@
   font-weight: 700;
   text-align: center;
   color: var(--ink-muted);
+}
+
+/* ---- Controls ---- */
+
+/*
+ * Two targets, both reachable with one thumb. RTL puts attack on the right,
+ * the same side the player's army fights from.
+ */
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-3);
+}
+
+.ctrl {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  min-height: var(--tap);
+  padding: var(--s-3) var(--s-2);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  /* No double-tap zoom, no text selection, no blue flash on tap. */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 90ms ease;
+}
+
+.ctrl:active {
+  transform: scale(0.97);
+}
+
+/* The cooldown sweep. --charge runs 0 (just fired) to 1 (ready). */
+.ctrl::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--tint);
+  opacity: 0.22;
+  transform: scaleX(var(--charge, 1));
+  transform-origin: right;
+  pointer-events: none;
+}
+
+.ctrl--attack {
+  --tint: var(--teal);
+}
+
+.ctrl--dodge {
+  --tint: var(--violet);
+}
+
+.ctrl__icon {
+  position: relative;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.ctrl__label {
+  position: relative;
+  font-size: var(--fs-sm);
+  font-weight: 800;
 }
 
 /* ---------- Result ---------- */
@@ -541,11 +647,7 @@
   }
 
   .battle__field {
-    min-height: 200px;
-  }
-
-  .fighter__emoji {
-    font-size: 62px;
+    min-height: 260px;
   }
 }
 
