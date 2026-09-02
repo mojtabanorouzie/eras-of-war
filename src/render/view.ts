@@ -22,6 +22,10 @@ export interface FighterView {
   recover: number
   /** True while the current wind-up is the fast one. */
   quickSwing: boolean
+  /** Seconds spent reeling from a perfect dodge. */
+  stagger: number
+  /** True while the next blow is a counter. */
+  counter: boolean
 }
 
 export interface ProjectileView {
@@ -41,5 +45,7 @@ export interface DuelView {
   projectiles: readonly ProjectileView[]
   /** 0..1. Spent on screen shake. */
   shake: number
+  /** Seconds of slow motion left. */
+  slowMotion: number
   result: { winner: ViewSide } | null
 }

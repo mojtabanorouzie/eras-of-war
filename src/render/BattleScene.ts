@@ -190,12 +190,8 @@ export class BattleScene {
     this.shots.apply(view.projectiles, ACTOR_SIZE)
     this.impact.update(dt, ACTOR_SIZE)
 
-    // Screen shake is the one place the camera moves, and reduced motion is
-    // exactly the preference that should switch it off.
-    const shake = reducedMotion ? 0 : view.shake
-    this.camera.position.x = shake === 0 ? 0 : (Math.random() - 0.5) * shake * 0.7
-    this.camera.position.y = shake === 0 ? 0 : (Math.random() - 0.5) * shake * 0.5
-
+    // Shake is applied in CSS to the whole field, so the HUD and the arena move
+    // together and the fallback gets it too. The camera stays put.
     this.renderer.render(this.scene, this.camera)
     return true
   }

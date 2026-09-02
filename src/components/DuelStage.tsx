@@ -64,14 +64,18 @@ export function DuelStage({ playerEmoji, enemyEmoji, subscribe }: DuelStageProps
       const flinch = side.hurt > 0 ? side.hurt / 0.22 : 0
       const lean = side.windUp > 0 ? 0.26 : 0
       const defeated = side.health <= 0
-      const tilt = defeated ? facing * 30 : facing * (lean - flinch * 0.3) * 40
+      // Reeling from a perfect dodge reads as a wobble.
+      const reel = side.stagger > 0 ? Math.sin(side.stagger * 34) * 9 : 0
+      const tilt = defeated ? facing * 30 : facing * (lean - flinch * 0.3) * 40 + reel
 
       element.style.transform = `translate(-50%, 0) translateX(${offset.toFixed(1)}px) rotate(${tilt.toFixed(1)}deg)`
       element.style.opacity = defeated ? '0.5' : side.invulnerable > 0 ? '0.45' : '1'
 
-      const winding = side.windUp > 0
+      const winding = side.windUp > 0 && side.stagger <= 0
       if (winding !== wasWinding) element.classList.toggle('is-winding', winding)
       element.classList.toggle('is-quick', winding && side.quickSwing)
+      element.classList.toggle('is-staggered', side.stagger > 0)
+      element.classList.toggle('is-loaded', side.counter)
       return winding
     }
 

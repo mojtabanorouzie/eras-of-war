@@ -84,7 +84,16 @@ export function createActor(
       shadow.scale.set(scale * 0.95, scale * 0.3, 1)
       shadowMaterial.opacity = (defeated ? 0.2 : 0.38) * (view.invulnerable > 0 ? 0.4 : 1)
 
-      const winding = view.windUp > 0
+      // Reeling from a perfect dodge: wobble, and go cold.
+      if (view.stagger > 0) {
+        mesh.rotation.z = Math.sin(view.stagger * 34) * 0.16
+        material.color.setRGB(0.62, 0.72, 1)
+      } else if (view.counter) {
+        // A loaded counter glows gold until it is spent.
+        material.color.setRGB(1.5, 1.28, 0.7)
+      }
+
+      const winding = view.windUp > 0 && view.stagger <= 0
       tell.visible = winding
       if (winding) {
         // Blooms as the blow approaches, so the dodge window is visible.

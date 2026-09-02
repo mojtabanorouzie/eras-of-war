@@ -669,3 +669,189 @@
     font-size: var(--fs-sm);
   }
 }
+
+/* ---------- Action feedback ---------- */
+
+/*
+ * The ghost trails the real bar downward only, so a blow leaves a visible
+ * white wound that closes a moment later. It is the cheapest way to make a
+ * health bar read as a hit rather than as a number changing.
+ */
+.hp__track {
+  position: relative;
+}
+
+.hp__ghost {
+  position: absolute;
+  inset: 0;
+  transform: scaleX(1);
+  transform-origin: right;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.hp__ghost--enemy {
+  transform-origin: left;
+}
+
+.hp__fill {
+  position: relative;
+}
+
+/* Damage numbers stay in the DOM: these are Persian numerals, and Persian
+ * digits have no business going anywhere near a WebGL text pipeline. */
+.dmg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.dmg {
+  position: absolute;
+  font-size: var(--fs-lg);
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  transform: translate(-50%, 0);
+  animation: dmg-pop 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.dmg--counter {
+  font-size: var(--fs-xl);
+  color: var(--gold);
+  text-shadow: 0 0 14px rgba(255, 198, 61, 0.9), 0 2px 6px rgba(0, 0, 0, 0.85);
+}
+
+.dmg--taken {
+  color: var(--rose);
+}
+
+@keyframes dmg-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.6);
+  }
+  22% {
+    opacity: 1;
+    transform: translate(-50%, -6px) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -34px) scale(1);
+  }
+}
+
+.combo {
+  position: absolute;
+  top: var(--s-3);
+  left: 50%;
+  z-index: 3;
+  font-size: var(--fs-2xl);
+  font-weight: 900;
+  color: var(--gold);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.75);
+  opacity: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.combo.is-on {
+  animation: combo-pop 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes combo-pop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(1.7);
+  }
+  30% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+  100% {
+    opacity: 0.9;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+/* The perfect-dodge call. Brief, loud, and the reason to read the tell. */
+.perfect {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  z-index: 4;
+  font-size: var(--fs-2xl);
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 18px var(--gold), 0 2px 8px rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: perfect-pop 620ms ease-out both;
+}
+
+@keyframes perfect-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.45);
+  }
+}
+
+/* Slow motion and low health are read off the field element itself. */
+.battle__field {
+  transition: filter 140ms ease;
+}
+
+.battle__field.is-slowmo {
+  filter: saturate(1.5) contrast(1.08) brightness(1.06);
+}
+
+.danger-edge {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(255, 60, 80, 0.55) 100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+.battle__field.is-danger .danger-edge {
+  opacity: 1;
+  animation: danger-pulse 900ms ease-in-out infinite;
+}
+
+@keyframes danger-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Fallback-field states that match what the canvas draws. */
+.duelist.is-staggered {
+  filter: saturate(0.35) drop-shadow(0 0 12px rgba(150, 190, 255, 0.9));
+}
+
+.duelist.is-loaded {
+  filter: drop-shadow(0 0 14px rgba(255, 198, 61, 0.95)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+}
+
+/*
+ * Shake, slow motion and the danger pulse are all suppressed for reduced
+ * motion in the fight loop itself; this only stops the one CSS loop that runs
+ * on its own.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .battle__field.is-danger .danger-edge {
+    animation: none;
+  }
+}

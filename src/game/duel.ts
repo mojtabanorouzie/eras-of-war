@@ -53,6 +53,37 @@ const MAX_HIT_STOP = 0.08
 const HURT_TIME = 0.22
 const RECOVER_TIME = 0.4
 
+/**
+ * Dodging with the enemy's blow this close to landing is a *perfect* dodge.
+ *
+ * This is the fight's whole risk/reward. Bail out early and you survive but
+ * give up ground; wait for the last moment and you slip the blow without
+ * moving at all, leave them reeling, and earn a free counter. It is the reason
+ * to read the tell instead of mashing the button.
+ */
+const PERFECT_WINDOW = 0.18
+
+/** How long a perfect dodge leaves the enemy reeling and unable to act. */
+const STAGGER_TIME = 0.9
+
+/** Real seconds of slow motion a perfect dodge buys, and how far it slows. */
+const SLOW_MOTION_TIME = 0.5
+const SLOW_MOTION_SCALE = 0.35
+
+/** The counter a perfect dodge earns multiplies the next blow by this. */
+const COUNTER_BONUS = 1.6
+
+/** Each chained blow adds this much damage, up to COMBO_CAP blows' worth. */
+const COMBO_STEP = 0.02
+const COMBO_CAP = 10
+
+/** A combo lapses if nothing lands for this long. */
+const COMBO_WINDOW = 2.5
+
+/** The killing blow gets its own, longer hold. */
+const FINISHER_HIT_STOP = 0.2
+const FINISHER_SLOW_MOTION = 0.7
+
 export interface Fighter {
   x: number
   health: number
@@ -71,6 +102,27 @@ export interface Fighter {
   attacksMade: number
   /** True while this wind-up is the fast one, so the renderer can colour it. */
   quickSwing: boolean
+  /** Seconds spent reeling from a perfect dodge. Cannot move or swing. */
+  stagger: number
+  /** Consecutive blows landed without being hit. */
+  combo: number
+  /** Seconds left to extend the combo before it lapses. */
+  comboWindow: number
+  /** True while the next blow is a counter, earned by a perfect dodge. */
+  counter: boolean
+}
+
+/** A blow that landed this frame. The UI drains these to pop damage numbers. */
+export interface HitEvent {
+  id: number
+  /** Which side took it. */
+  target: Side
+  damage: number
+  /** Where it landed, in world units. */
+  x: number
+  counter: boolean
+  /** True if this blow ended the fight. */
+  finisher: boolean
 }
 
 export interface Projectile {
@@ -111,7 +163,14 @@ export interface DuelState {
   shake: number
   /** Seconds of hit-stop left. The world holds still while this is above zero. */
   hitStop: number
+  /** Seconds of slow motion left, measured in real time, not fight time. */
+  slowMotion: number
+  /** Blows landed this frame. Cleared at the start of every step. */
+  events: HitEvent[]
+  /** Set for the single frame a perfect dodge lands. */
+  perfectDodge: boolean
   nextProjectileId: number
+  nextEventId: number
 }
 
 /** Set by the input layer; the fight consumes it. */
@@ -144,6 +203,10 @@ function fighter(x: number, maxHealth: number): Fighter {
     hitsLanded: 0,
     attacksMade: 0,
     quickSwing: false,
+    stagger: 0,
+    combo: 0,
+    comboWindow: 0,
+    counter: false,
   }
 }
 
@@ -159,7 +222,11 @@ export function createDuel(player: CombatStats, enemy: CombatStats): DuelState {
     result: null,
     shake: 0,
     hitStop: 0,
+    slowMotion: 0,
+    events: [],
+    perfectDodge: false,
     nextProjectileId: 1,
+    nextEventId: 1,
   }
 }
 
@@ -183,21 +250,51 @@ function tickTimers(side: Fighter, step: number): void {
   side.dodgeCooldown = countDown(side.dodgeCooldown, step)
   side.hurt = countDown(side.hurt, step)
   side.recover = countDown(side.recover, step)
+  side.stagger = countDown(side.stagger, step)
+
+  side.comboWindow = countDown(side.comboWindow, step)
+  if (side.comboWindow <= 0) side.combo = 0
 }
 
 /** @returns true if the blow actually connected. */
-function applyHit(state: DuelState, from: Side, damage: number): boolean {
+function applyHit(state: DuelState, from: Side, baseDamage: number): boolean {
   const attacker = from === 'player' ? state.player : state.enemy
   const target = from === 'player' ? state.enemy : state.player
 
   // A dodge in progress means the blow passes straight through.
   if (target.invulnerable > 0) return false
 
+  const counter = attacker.counter
+  attacker.counter = false
+  const chained = 1 + Math.min(attacker.combo, COMBO_CAP) * COMBO_STEP
+  const damage = baseDamage * chained * (counter ? COUNTER_BONUS : 1)
+
   target.health = Math.max(0, target.health - damage)
   target.hurt = HURT_TIME
+  // Getting hit is what ends a combo, so pressure is the way to keep one.
+  target.combo = 0
+  target.comboWindow = 0
+
   attacker.hitsLanded += 1
-  state.hitStop = Math.min(MAX_HIT_STOP, damage * HIT_STOP_PER_DAMAGE)
+  attacker.combo += 1
+  attacker.comboWindow = COMBO_WINDOW
+
+  const finisher = target.health <= 0
+  state.hitStop = finisher
+    ? FINISHER_HIT_STOP
+    : Math.min(MAX_HIT_STOP, damage * HIT_STOP_PER_DAMAGE)
+  if (finisher) state.slowMotion = Math.max(state.slowMotion, FINISHER_SLOW_MOTION)
   state.shake = Math.min(1, state.shake + damage / 26)
+
+  state.events.push({
+    id: state.nextEventId,
+    target: from === 'player' ? 'enemy' : 'player',
+    damage,
+    x: target.x,
+    counter,
+    finisher,
+  })
+  state.nextEventId += 1
   return true
 }
 
@@ -271,6 +368,9 @@ function runEnemy(state: DuelState, step: number): void {
   const stats = state.stats.enemy
   const distance = gap(state)
 
+  // Reeling from a perfect dodge: no ground gained, no swing thrown.
+  if (enemy.stagger > 0) return
+
   // Standing still is the telegraph: while it is winding up, it does not move.
   if (enemy.windUp <= 0) {
     if (enemy.recover > 0) {
@@ -326,8 +426,15 @@ function finish(state: DuelState): void {
  * it each frame is not worth the purity.
  */
 export function advanceDuel(state: DuelState, dt: number, input: DuelInput): void {
-  const step = Math.min(Math.max(dt, 0), MAX_STEP)
-  state.shake = Math.max(0, state.shake - step * 3.4)
+  // Real time first, before slow motion bends it.
+  const real = Math.min(Math.max(dt, 0), MAX_STEP)
+  state.events.length = 0
+  state.perfectDodge = false
+  state.slowMotion = countDown(state.slowMotion, real)
+  state.shake = Math.max(0, state.shake - real * 3.4)
+
+  // Slow motion bends the fight's clock, never the browser's.
+  const step = state.slowMotion > 0 ? real * SLOW_MOTION_SCALE : real
 
   if (state.phase === 'over') {
     advanceProjectiles(state, step)
@@ -347,9 +454,10 @@ export function advanceDuel(state: DuelState, dt: number, input: DuelInput): voi
     return
   }
 
-  // Hit-stop: the whole world holds for a moment so the blow reads.
+  // Hit-stop: the whole world holds for a moment so the blow reads. Measured
+  // in real time — a freeze that itself ran in slow motion would never end.
   if (state.hitStop > 0) {
-    state.hitStop = Math.max(0, state.hitStop - step)
+    state.hitStop = Math.max(0, state.hitStop - real)
     return
   }
 
@@ -363,8 +471,22 @@ export function advanceDuel(state: DuelState, dt: number, input: DuelInput): voi
   if (input.dodge) {
     input.dodgeAge += step
     if (player.dodgeCooldown <= 0 && player.windUp <= 0) {
-      player.x += stats.dodgeDistance
-      player.invulnerable = stats.dodgeInvulnerable
+      const incoming = enemy.windUp
+      if (incoming > 0 && incoming <= PERFECT_WINDOW) {
+        // Slipped it at the last moment: hold the ground, break their swing,
+        // and load a counter. This is the play the whole fight is built around.
+        enemy.windUp = 0
+        enemy.stagger = STAGGER_TIME
+        enemy.recover = 0
+        player.counter = true
+        player.invulnerable = stats.dodgeInvulnerable * 1.5
+        state.slowMotion = SLOW_MOTION_TIME
+        state.perfectDodge = true
+      } else {
+        // Bailed out early: safe, but it costs you the distance.
+        player.x += stats.dodgeDistance
+        player.invulnerable = stats.dodgeInvulnerable
+      }
       player.dodgeCooldown = stats.dodgeCooldown
       input.dodge = false
       input.dodgeAge = 0

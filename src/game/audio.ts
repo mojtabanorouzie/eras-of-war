@@ -6,7 +6,7 @@
  * oscillator. The game is fully playable with sound off.
  */
 
-type Cue = 'tap' | 'buy' | 'battle' | 'victory' | 'defeat'
+type Cue = 'tap' | 'buy' | 'battle' | 'victory' | 'defeat' | 'hit' | 'hurt' | 'perfect'
 
 interface Tone {
   freq: number
@@ -35,6 +35,14 @@ const CUES: Record<Cue, Tone[]> = {
   defeat: [
     { freq: 330, duration: 0.16, type: 'sine', gain: 0.06, at: 0 },
     { freq: 220, duration: 0.3, type: 'sine', gain: 0.06, at: 0.14 },
+  ],
+
+  /* Combat. Short and quiet: these fire several times a second. */
+  hit: [{ freq: 320, duration: 0.05, type: 'square', gain: 0.04, at: 0 }],
+  hurt: [{ freq: 140, duration: 0.11, type: 'sawtooth', gain: 0.055, at: 0 }],
+  perfect: [
+    { freq: 880, duration: 0.07, type: 'triangle', gain: 0.06, at: 0 },
+    { freq: 1320, duration: 0.15, type: 'triangle', gain: 0.05, at: 0.06 },
   ],
 }
 
