@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useReducer } from 'react'
+import { findHero } from '../data/heroes'
 import { TOTAL_LEVELS } from '../data/levels'
 import { findWeapon } from '../data/weapons'
 import { setMuted } from './audio'
 import { payoutFor, purchaseWeapon } from './economy'
 import { createInitialState, loadState, saveState, clearState } from './storage'
-import type { GameState, Level } from './types'
+import type { GameState, HeroId, Level } from './types'
 
 export type GameAction =
   | { type: 'equip'; weaponId: string }
+  | { type: 'chooseHero'; heroId: string }
   | { type: 'buy'; weaponId: string }
   | { type: 'battleResolved'; level: Level; won: boolean }
   | { type: 'toggleMute' }
@@ -18,6 +20,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'equip': {
       if (!state.ownedWeaponIds.includes(action.weaponId)) return state
       return { ...state, equippedWeaponId: action.weaponId }
+    }
+
+    case 'chooseHero': {
+      const hero = findHero(action.heroId)
+      // Picking a commander you have not unlocked yet is simply not a move.
+      if (!hero || state.clearedLevelIds.length < hero.unlockAfter) return state
+      return { ...state, heroId: hero.id }
     }
 
     case 'buy': {
@@ -62,6 +71,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 export interface GameApi {
   state: GameState
   equip: (weaponId: string) => void
+  chooseHero: (heroId: HeroId) => void
   buy: (weaponId: string) => void
   resolveBattle: (level: Level, won: boolean) => void
   toggleMute: () => void
@@ -80,6 +90,7 @@ export function useGame(): GameApi {
   }, [state.muted])
 
   const equip = useCallback((weaponId: string) => dispatch({ type: 'equip', weaponId }), [])
+  const chooseHero = useCallback((heroId: HeroId) => dispatch({ type: 'chooseHero', heroId }), [])
   const buy = useCallback((weaponId: string) => dispatch({ type: 'buy', weaponId }), [])
   const resolveBattle = useCallback(
     (level: Level, won: boolean) => dispatch({ type: 'battleResolved', level, won }),
@@ -92,7 +103,7 @@ export function useGame(): GameApi {
   }, [])
 
   return useMemo(
-    () => ({ state, equip, buy, resolveBattle, toggleMute, resetGame }),
-    [state, equip, buy, resolveBattle, toggleMute, resetGame],
+    () => ({ state, equip, chooseHero, buy, resolveBattle, toggleMute, resetGame }),
+    [state, equip, chooseHero, buy, resolveBattle, toggleMute, resetGame],
   )
 }

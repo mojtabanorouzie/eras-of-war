@@ -54,24 +54,16 @@ const HURT_TIME = 0.22
 const RECOVER_TIME = 0.4
 
 /**
- * Dodging with the enemy's blow this close to landing is a *perfect* dodge.
+ * How long a perfect dodge leaves the enemy reeling and unable to act.
  *
- * This is the fight's whole risk/reward. Bail out early and you survive but
- * give up ground; wait for the last moment and you slip the blow without
- * moving at all, leave them reeling, and earn a free counter. It is the reason
- * to read the tell instead of mashing the button.
+ * The window itself, and what the counter is worth, live on CombatStats rather
+ * than here: both are things a commander changes.
  */
-const PERFECT_WINDOW = 0.18
-
-/** How long a perfect dodge leaves the enemy reeling and unable to act. */
 const STAGGER_TIME = 0.9
 
 /** Real seconds of slow motion a perfect dodge buys, and how far it slows. */
 const SLOW_MOTION_TIME = 0.5
 const SLOW_MOTION_SCALE = 0.35
-
-/** The counter a perfect dodge earns multiplies the next blow by this. */
-const COUNTER_BONUS = 1.6
 
 /** Each chained blow adds this much damage, up to COMBO_CAP blows' worth. */
 const COMBO_STEP = 0.02
@@ -264,10 +256,11 @@ function applyHit(state: DuelState, from: Side, baseDamage: number): boolean {
   // A dodge in progress means the blow passes straight through.
   if (target.invulnerable > 0) return false
 
+  const stats = from === 'player' ? state.stats.player : state.stats.enemy
   const counter = attacker.counter
   attacker.counter = false
   const chained = 1 + Math.min(attacker.combo, COMBO_CAP) * COMBO_STEP
-  const damage = baseDamage * chained * (counter ? COUNTER_BONUS : 1)
+  const damage = baseDamage * chained * (counter ? stats.counterBonus : 1)
 
   target.health = Math.max(0, target.health - damage)
   target.hurt = HURT_TIME
@@ -472,7 +465,7 @@ export function advanceDuel(state: DuelState, dt: number, input: DuelInput): voi
     input.dodgeAge += step
     if (player.dodgeCooldown <= 0 && player.windUp <= 0) {
       const incoming = enemy.windUp
-      if (incoming > 0 && incoming <= PERFECT_WINDOW) {
+      if (incoming > 0 && incoming <= stats.perfectWindow) {
         // Slipped it at the last moment: hold the ground, break their swing,
         // and load a counter. This is the play the whole fight is built around.
         enemy.windUp = 0

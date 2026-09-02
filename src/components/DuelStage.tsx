@@ -20,11 +20,17 @@ const SHOT_POOL = 6
 
 interface DuelStageProps {
   playerEmoji: string
+  playerWeaponEmoji: string
   enemyEmoji: string
   subscribe: (draw: (state: DuelState) => void) => () => void
 }
 
-export function DuelStage({ playerEmoji, enemyEmoji, subscribe }: DuelStageProps) {
+export function DuelStage({
+  playerEmoji,
+  playerWeaponEmoji,
+  enemyEmoji,
+  subscribe,
+}: DuelStageProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<HTMLSpanElement>(null)
   const enemyRef = useRef<HTMLSpanElement>(null)
@@ -108,10 +114,11 @@ export function DuelStage({ playerEmoji, enemyEmoji, subscribe }: DuelStageProps
   return (
     <div ref={stageRef} className="battle__stage battle__stage--dom" aria-hidden="true">
       <span ref={enemyRef} className="duelist duelist--enemy">
-        {enemyEmoji}
+        <i className="duelist__body">{enemyEmoji}</i>
       </span>
       <span ref={playerRef} className="duelist duelist--player">
-        {playerEmoji}
+        <i className="duelist__body">{playerEmoji}</i>
+        <i className="duelist__arm">{playerWeaponEmoji}</i>
       </span>
       <div ref={shotsRef} className="duel-shots">
         {Array.from({ length: SHOT_POOL }, (_, index) => (

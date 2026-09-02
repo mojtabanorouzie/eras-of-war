@@ -10,7 +10,7 @@ import type { DuelResult, DuelState } from '../game/duel'
 import { inReach } from '../game/duel'
 import { faNumber } from '../game/format'
 import type { BattleSetup } from '../game/progression'
-import type { Weapon } from '../game/types'
+import type { Hero, Weapon } from '../game/types'
 
 /**
  * Three.js lands in its own chunk and is fetched the first time a battle
@@ -35,21 +35,23 @@ const DANGER = 0.3
 interface BattleProps {
   setup: BattleSetup
   playerWeapon: Weapon
+  /** The commander leading this fight. */
+  hero: Hero
   /** Veterancy earned so far; the same value the engine is given. */
   veterancy: number
   onFinished: (result: DuelResult) => void
 }
 
-export function Battle({ setup, playerWeapon, veterancy, onFinished }: BattleProps) {
+export function Battle({ setup, playerWeapon, hero, veterancy, onFinished }: BattleProps) {
   const { terrain, enemy } = setup
   const reducedMotion = useReducedMotion()
 
   const stats = useMemo(
     () => ({
-      player: playerCombatStats(playerWeapon, terrain, veterancy),
+      player: playerCombatStats(playerWeapon, terrain, veterancy, hero),
       enemy: enemyCombatStats(enemy, terrain),
     }),
-    [playerWeapon, terrain, veterancy, enemy],
+    [playerWeapon, terrain, veterancy, hero, enemy],
   )
 
   const duel = useDuel(stats.player, stats.enemy)
@@ -289,7 +291,8 @@ export function Battle({ setup, playerWeapon, veterancy, onFinished }: BattlePro
             <Suspense fallback={null}>
               <BattleCanvas
                 terrain={terrain}
-                playerEmoji={playerWeapon.emoji}
+                playerEmoji={hero.emoji}
+                playerWeaponEmoji={playerWeapon.emoji}
                 enemyEmoji={enemy.emoji}
                 reducedMotion={reducedMotion}
                 subscribe={subscribe}
@@ -301,7 +304,8 @@ export function Battle({ setup, playerWeapon, veterancy, onFinished }: BattlePro
 
           {canvasLive ? null : (
             <DuelStage
-              playerEmoji={playerWeapon.emoji}
+              playerEmoji={hero.emoji}
+              playerWeaponEmoji={playerWeapon.emoji}
               enemyEmoji={enemy.emoji}
               subscribe={subscribe}
             />

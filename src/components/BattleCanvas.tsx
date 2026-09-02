@@ -26,6 +26,7 @@ import type { DuelView } from '../render/view'
 interface BattleCanvasProps {
   terrain: Terrain
   playerEmoji: string
+  playerWeaponEmoji: string
   enemyEmoji: string
   reducedMotion: boolean
   /** Registers a per-frame draw call with the running fight. */
@@ -39,6 +40,7 @@ interface BattleCanvasProps {
 export default function BattleCanvas({
   terrain,
   playerEmoji,
+  playerWeaponEmoji,
   enemyEmoji,
   reducedMotion,
   subscribe,
@@ -71,7 +73,7 @@ export default function BattleCanvas({
     try {
       scene = new BattleScene({
         canvas,
-        field: { seed: terrain.id, colors: [from, to], playerEmoji, enemyEmoji },
+        field: { seed: terrain.id, colors: [from, to], playerEmoji, playerWeaponEmoji, enemyEmoji },
         onContextLost: () => callbacks.current.onUnavailable(),
       })
     } catch (error) {
@@ -109,7 +111,7 @@ export default function BattleCanvas({
       scene.dispose()
       canvas.remove()
     }
-  }, [terrain.id, from, to, playerEmoji, enemyEmoji, subscribe])
+  }, [terrain.id, from, to, playerEmoji, playerWeaponEmoji, enemyEmoji, subscribe])
 
   return <div ref={stageRef} className="battle__stage" aria-hidden="true" />
 }

@@ -1,9 +1,10 @@
+import { HEROES, findHero } from '../data/heroes'
 import { LEVELS, TOTAL_LEVELS, findLevel } from '../data/levels'
 import { findEnemy } from '../data/enemies'
 import { findTerrain } from '../data/terrains'
 import { WEAPONS, findWeapon } from '../data/weapons'
 import { SCORE, VETERANCY_PER_WIN } from './balance'
-import type { Enemy, GameState, Level, Terrain, Weapon } from './types'
+import type { Enemy, GameState, Hero, Level, Terrain, Weapon } from './types'
 
 /** Every win makes the whole army a little better, whatever they are holding. */
 export function veterancyOf(state: GameState): number {
@@ -22,6 +23,20 @@ export function equippedWeapon(state: GameState): Weapon {
 export function bestOwnedWeapon(state: GameState): Weapon {
   const owned = ownedWeapons(state)
   return owned.reduce<Weapon>((best, weapon) => (weapon.power > best.power ? weapon : best), owned[0] ?? WEAPONS[0]!)
+}
+
+/** A commander joins the roster once this many battles have been cleared. */
+export function isHeroUnlocked(state: GameState, hero: Hero): boolean {
+  return state.clearedLevelIds.length >= hero.unlockAfter
+}
+
+export function unlockedHeroes(state: GameState): Hero[] {
+  return HEROES.filter((hero) => isHeroUnlocked(state, hero))
+}
+
+export function selectedHero(state: GameState): Hero {
+  // Storage guarantees the id is real and unlocked, but fall back rather than throw.
+  return findHero(state.heroId) ?? HEROES[0]!
 }
 
 /** Everything a battle screen needs, resolved from ids in one place. */

@@ -8,20 +8,31 @@ import {
   currentBattleSetup,
   equippedWeapon,
   ownedWeapons,
+  selectedHero,
   veterancyOf,
 } from './game/progression'
 import { useGame } from './game/useGame'
-import type { BattleOutcome, Weapon } from './game/types'
+import type { BattleOutcome, Hero, HeroId, Weapon } from './game/types'
 import { Armory } from './screens/Armory'
 import { Battle } from './screens/Battle'
 import { BattlePreparation } from './screens/BattlePreparation'
+import { Heroes } from './screens/Heroes'
 import { Home } from './screens/Home'
 import { HowToPlay } from './screens/HowToPlay'
 import { Result } from './screens/Result'
 import { Settings } from './screens/Settings'
 import { Victory } from './screens/Victory'
 
-type ScreenId = 'home' | 'armory' | 'prep' | 'battle' | 'result' | 'howto' | 'victory' | 'settings'
+type ScreenId =
+  | 'home'
+  | 'armory'
+  | 'heroes'
+  | 'prep'
+  | 'battle'
+  | 'result'
+  | 'howto'
+  | 'victory'
+  | 'settings'
 
 /** Where the armory should return to when it is closed. */
 type ArmoryOrigin = 'home' | 'prep' | 'result'
@@ -35,6 +46,7 @@ type ArmoryOrigin = 'home' | 'prep' | 'result'
 interface PendingBattle {
   setup: BattleSetup
   weapon: Weapon
+  hero: Hero
   veterancy: number
 }
 
@@ -53,7 +65,7 @@ interface ResolvedBattle {
 }
 
 export function App() {
-  const { state, equip, buy, resolveBattle, toggleMute, resetGame } = useGame()
+  const { state, equip, chooseHero, buy, resolveBattle, toggleMute, resetGame } = useGame()
   const [screen, setScreen] = useState<ScreenId>('home')
   const [armoryOrigin, setArmoryOrigin] = useState<ArmoryOrigin>('home')
   const [pending, setPending] = useState<PendingBattle | null>(null)
@@ -75,7 +87,12 @@ export function App() {
 
   const startFight = useCallback(() => {
     if (!setup) return
-    setPending({ setup, weapon: equippedWeapon(state), veterancy: veterancyOf(state) })
+    setPending({
+      setup,
+      weapon: equippedWeapon(state),
+      hero: selectedHero(state),
+      veterancy: veterancyOf(state),
+    })
     setBattleKey((key) => key + 1)
     playCue('tap')
     setScreen('battle')
@@ -93,6 +110,7 @@ export function App() {
         pending.setup.terrain,
         pending.veterancy,
         pending.setup.enemy,
+        pending.hero,
         result,
       )
       const won = outcome.winner === 'player'
@@ -142,6 +160,16 @@ export function App() {
     [equip],
   )
 
+  const handleChooseHero = useCallback(
+    (heroId: HeroId) => {
+      playCue('tap')
+      chooseHero(heroId)
+      // Straight back to the battle you were setting up.
+      setScreen('prep')
+    },
+    [chooseHero],
+  )
+
   const playAgain = useCallback(() => {
     playCue('tap')
     resetGame()
@@ -185,8 +213,13 @@ export function App() {
           setup={setup}
           onFight={startFight}
           onOpenArmory={() => openArmory('prep')}
+          onOpenHeroes={() => go('heroes')}
           onBack={() => go('home')}
         />
+      ) : null}
+
+      {screen === 'heroes' ? (
+        <Heroes state={state} onChoose={handleChooseHero} onBack={() => go('prep')} />
       ) : null}
 
       {screen === 'battle' && pending ? (
@@ -194,6 +227,7 @@ export function App() {
           key={battleKey}
           setup={pending.setup}
           playerWeapon={pending.weapon}
+          hero={pending.hero}
           veterancy={pending.veterancy}
           onFinished={finishBattle}
         />

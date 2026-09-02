@@ -32,7 +32,10 @@ export interface FieldDescription {
   seed: string
   /** The terrain's own gradient stops, so the canvas matches the banner. */
   colors: readonly [string, string]
+  /** The commander leading the fight. */
   playerEmoji: string
+  /** The weapon that commander is carrying, drawn at their side. */
+  playerWeaponEmoji: string
   enemyEmoji: string
 }
 
@@ -111,7 +114,13 @@ export class BattleScene {
 
     this.backdrop = createTerrainBackdrop(field.colors, this.quad)
     this.scenery = createScenery(field.seed, field.colors, this.quad)
-    this.player = createActor(emojiTexture(field.playerEmoji), radial, this.quad, RENDER_ORDER.player)
+    this.player = createActor(
+      emojiTexture(field.playerEmoji),
+      radial,
+      this.quad,
+      RENDER_ORDER.player,
+      emojiTexture(field.playerWeaponEmoji),
+    )
     this.enemy = createActor(emojiTexture(field.enemyEmoji), radial, this.quad, RENDER_ORDER.enemy)
     this.shots = createProjectiles(radial, this.quad)
     this.impact = createImpact(radial, this.quad)

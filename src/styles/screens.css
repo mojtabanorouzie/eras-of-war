@@ -855,3 +855,145 @@
     animation: none;
   }
 }
+
+/* ---------- Commanders ---------- */
+
+.hero-grid {
+  display: grid;
+  gap: var(--s-4);
+}
+
+@media (min-width: 780px) {
+  .hero-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.hero-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-md);
+}
+
+.hero-card--chosen {
+  border-color: var(--teal);
+  box-shadow: var(--shadow-md), inset 0 0 0 1px var(--teal);
+}
+
+.hero-card--locked {
+  opacity: 0.62;
+}
+
+.hero-card__emoji {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.hero-card__title {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.hero-card__lock {
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-md);
+  text-align: center;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+/*
+ * Traits are multipliers read against a baseline of 1.0, so the midpoint tick
+ * is the whole point: past it this commander is better than the baseline,
+ * short of it they are worse. Without the tick a bar at 60% would read as
+ * "quite good" when it actually means "worse than average".
+ */
+.traits {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.trait {
+  display: grid;
+  grid-template-columns: 3.2em minmax(0, 1fr);
+  gap: var(--s-2);
+  align-items: center;
+}
+
+.trait__label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.trait__track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+/* Where a multiplier of exactly 1.0 lands: (1 - TRAIT_FLOOR) / TRAIT_SPAN. */
+.trait__track::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 44.4%;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* RTL: magnitude grows from the right, like every other bar in the game. */
+.trait__fill {
+  display: block;
+  height: 100%;
+  transform-origin: right;
+  background: var(--teal);
+}
+
+.trait__fill--low {
+  background: var(--gold);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+/*
+ * In the fallback field the commander and the weapon are two glyphs, the same
+ * pairing the canvas draws. `direction: ltr` is deliberate: the flex order here
+ * is physical, because the player faces LEFT and the weapon has to sit on that
+ * side whatever the document direction is.
+ */
+.duelist {
+  display: inline-flex;
+  align-items: flex-end;
+  direction: ltr;
+}
+
+.duelist__body,
+.duelist__arm {
+  font-style: normal;
+  line-height: 1;
+}
+
+.duelist__arm {
+  order: -1;
+  margin-inline-end: -0.14em;
+  font-size: 0.52em;
+  transform: rotate(-20deg) translateY(-0.1em);
+  transition: transform 90ms ease;
+}
+
+.duelist.is-winding .duelist__arm {
+  transform: rotate(28deg) translateY(-0.24em);
+}

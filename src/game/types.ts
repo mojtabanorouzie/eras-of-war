@@ -9,6 +9,41 @@ export type EraId = 'ancient' | 'medieval' | 'industrial' | 'modern' | 'future'
 
 export type TerrainId = 'forest' | 'desert' | 'city' | 'snow' | 'coast'
 
+export type HeroId = 'surena' | 'gordafarid' | 'arash' | 'rostam'
+
+/**
+ * A commander. The second choice a player makes, independent of the weapon.
+ *
+ * Every stat below is a MULTIPLIER on the combat stats the weapon already
+ * produced - 1 means "leave it alone". A hero changes how a fight is fought;
+ * it never changes what a weapon or a battlefield is worth, so the tuned
+ * strategy layer underneath stays exactly as it was.
+ */
+export interface Hero {
+  id: HeroId
+  name: string
+  emoji: string
+  /** One-line epithet, shown under the name. */
+  title: string
+  /** Two sentences on how this commander changes the fight. */
+  blurb: string
+  /** Battles that must be cleared before they join. 0 = from the start. */
+  unlockAfter: number
+  health: number
+  damage: number
+  /** Attack cycle. Below 1 swings faster, above 1 swings slower and heavier. */
+  cycle: number
+  reach: number
+  /** Dodge cooldown. Below 1 recovers quicker. */
+  dodgeCooldown: number
+  /** Dodge invulnerability. Above 1 is a more forgiving dodge. */
+  dodgeInvulnerable: number
+  /** Extra seconds on the perfect-dodge window. Added, not multiplied. */
+  perfectWindow: number
+  /** Multiplier on the counter damage a perfect dodge earns. */
+  counterBonus: number
+}
+
 /** How a weapon fights. Terrains react to this more than to raw power. */
 export type WeaponType = 'melee' | 'ranged' | 'firearm' | 'sniper' | 'siege' | 'energy'
 
@@ -131,6 +166,8 @@ export interface GameState {
   coins: number
   ownedWeaponIds: string[]
   equippedWeaponId: string
+  /** The commander leading the next battle. */
+  heroId: HeroId
   /** 1-based index of the next battle to fight. */
   currentLevel: number
   /** Level ids already cleared, so rewards are only paid once. */

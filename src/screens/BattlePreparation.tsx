@@ -12,7 +12,7 @@ import {
 } from '../game/battleEngine'
 import { faNumber, faSigned, formatCoins } from '../game/format'
 import type { BattleSetup } from '../game/progression'
-import { equippedWeapon, veterancyOf } from '../game/progression'
+import { equippedWeapon, selectedHero, veterancyOf } from '../game/progression'
 import type { GameState } from '../game/types'
 
 interface BattlePreparationProps {
@@ -20,6 +20,7 @@ interface BattlePreparationProps {
   setup: BattleSetup
   onFight: () => void
   onOpenArmory: () => void
+  onOpenHeroes: () => void
   onBack: () => void
 }
 
@@ -28,10 +29,12 @@ export function BattlePreparation({
   setup,
   onFight,
   onOpenArmory,
+  onOpenHeroes,
   onBack,
 }: BattlePreparationProps) {
   const { level, terrain, enemy } = setup
   const weapon = equippedWeapon(state)
+  const hero = selectedHero(state)
   const veterancy = veterancyOf(state)
 
   const fit = evaluateTerrainFit(weapon, terrain)
@@ -90,6 +93,23 @@ export function BattlePreparation({
           </div>
 
           <div className="stack">
+            <section className="card stack stack--tight">
+              <p className="eyebrow">فرماندهٔ تو</p>
+              <div className="row">
+                <span aria-hidden="true" style={{ fontSize: 30 }}>
+                  {hero.emoji}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="subtitle">{hero.name}</p>
+                  <p className="small">{hero.title}</p>
+                </div>
+                <button type="button" className="btn btn--ghost" onClick={onOpenHeroes}>
+                  تعویض
+                </button>
+              </div>
+              <p className="small">{hero.blurb}</p>
+            </section>
+
             <section className="card stack stack--tight">
               <p className="eyebrow">سلاح تو</p>
               <div className="row">

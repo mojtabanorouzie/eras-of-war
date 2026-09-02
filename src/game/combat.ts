@@ -3,7 +3,15 @@ import { evaluateTerrainFit, explainFit, projectEnemyPower, projectPlayerPower }
 import type { Odds } from './battleEngine'
 import type { DuelResult } from './duel'
 import { faNumber } from './format'
-import type { BattleOutcome, Enemy, Terrain, Weapon, WeaponType, WeaponWeight } from './types'
+import type {
+  BattleOutcome,
+  Enemy,
+  Hero,
+  Terrain,
+  Weapon,
+  WeaponType,
+  WeaponWeight,
+} from './types'
 
 /**
  * Turns the game's tuned strategy numbers into real-time combat stats.
@@ -21,6 +29,11 @@ import type { BattleOutcome, Enemy, Terrain, Weapon, WeaponType, WeaponWeight } 
  *   weapon.range                ->  how far you can hit from
  *   weapon.weight               ->  how fast and far you can dodge
  *   weapon.type                 ->  attack rhythm: rate, wind-up, projectile
+ *
+ * The chosen hero then multiplies the result. A commander bends how the fight
+ * is fought - health, footwork, reach, what a counter is worth - and never
+ * what the weapon or the ground is worth, so the strategy layer survives
+ * underneath whichever commander is leading.
  */
 
 /** Both armies field the same number of soldiers; power decides how hard they hit. */
@@ -38,6 +51,12 @@ export const DUEL_TIMEOUT = 30
  */
 const REFERENCE_POWER = 180
 const TIME_TO_KILL = 14
+
+/** How late a dodge may be and still be perfect, before the hero widens it. */
+const BASE_PERFECT_WINDOW = 0.18
+
+/** What a counter multiplies damage by, before the hero sharpens it. */
+const BASE_COUNTER_BONUS = 1.6
 
 /** How a weapon type fights. dpsScale trades safety against damage. */
 const TYPE_PROFILE: Record<
@@ -85,6 +104,10 @@ export interface CombatStats {
   dodgeInvulnerable: number
   /** World units per second this side closes the gap. */
   approachSpeed: number
+  /** How late a dodge can be and still count as perfect, in seconds. */
+  perfectWindow: number
+  /** What a counter multiplies damage by. */
+  counterBonus: number
   /** The luck-free power this was derived from, for the report screen. */
   power: number
 }
@@ -94,14 +117,16 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * The player's kit.
+ * The player's kit: the weapon on this ground, led by this commander.
  *
  * @param veterancy the same value `veterancyOf(state)` feeds the engine.
+ * @param hero      multiplies the finished stats; never the power behind them.
  */
 export function playerCombatStats(
   weapon: Weapon,
   terrain: Terrain,
   veterancy: number,
+  hero: Hero,
 ): CombatStats {
   const power = projectPlayerPower(weapon, terrain, veterancy)
   const type = TYPE_PROFILE[weapon.type]
@@ -111,21 +136,30 @@ export function playerCombatStats(
   // gap and the in-fight gap are the same gap.
   const damagePerSecond = (power / REFERENCE_POWER) * (MAX_HEALTH / TIME_TO_KILL) * type.dpsScale
 
+  // A slower cycle means fewer, heavier blows rather than less damage, so a
+  // hero who swings slowly still trades evenly - they just hit in bigger
+  // pieces, and every miss costs more.
+  const cycle = type.cycle * hero.cycle
+
   return {
-    maxHealth: MAX_HEALTH,
-    damage: damagePerSecond * type.cycle,
-    cycle: type.cycle,
+    maxHealth: MAX_HEALTH * hero.health,
+    damage: damagePerSecond * cycle * hero.damage,
+    cycle,
     windUp: type.windUp,
     // range 10 -> a spear's length, range 120 -> most of the field. The floor
     // matters: a weapon that cannot out-reach ENGAGE_DISTANCE can never land a
     // blow at all, which would silently delete every melee weapon from the game.
-    reach: clamp((2.8 + (weapon.range / 120) * 8.2) * type.reachScale, 2.6, ARENA_HALF * 1.3),
+    reach:
+      clamp((2.8 + (weapon.range / 120) * 8.2) * type.reachScale, 2.6, ARENA_HALF * 1.3) *
+      hero.reach,
     projectileSpeed: type.projectileSpeed,
     dodgeDistance: weight.dodgeDistance,
-    dodgeCooldown: weight.dodgeCooldown,
-    dodgeInvulnerable: weight.dodgeInvulnerable,
+    dodgeCooldown: weight.dodgeCooldown * hero.dodgeCooldown,
+    dodgeInvulnerable: weight.dodgeInvulnerable * hero.dodgeInvulnerable,
     // The player never advances on their own; the enemy closes the distance.
     approachSpeed: 0,
+    perfectWindow: BASE_PERFECT_WINDOW + hero.perfectWindow,
+    counterBonus: BASE_COUNTER_BONUS * hero.counterBonus,
     power,
   }
 }
@@ -165,6 +199,9 @@ export function enemyCombatStats(enemy: Enemy, terrain: Terrain): CombatStats {
     dodgeCooldown: 0,
     dodgeInvulnerable: 0,
     approachSpeed: 3.2 + menace * 1.5,
+    // Enemies never dodge, so these only exist to complete the shape.
+    perfectWindow: BASE_PERFECT_WINDOW,
+    counterBonus: BASE_COUNTER_BONUS,
     power,
   }
 }
@@ -183,6 +220,7 @@ export function reportDuel(
   terrain: Terrain,
   veterancy: number,
   enemy: Enemy,
+  hero: Hero,
   result: DuelResult,
 ): BattleOutcome {
   const fit = evaluateTerrainFit(weapon, terrain)
@@ -203,7 +241,7 @@ export function reportDuel(
     enemyPower,
     winner: result.winner,
     terrainBonus: fit.total,
-    explanation: `${explainFit(weapon, terrain, fit)} ${outcomeLine}`,
+    explanation: `${hero.emoji} فرماندهی با ${hero.name} بود. ${explainFit(weapon, terrain, fit)} ${outcomeLine}`,
     margin: playerPower - enemyPower,
     player: {
       base: ARMY_BASE_POWER,

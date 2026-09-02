@@ -1,7 +1,8 @@
+import { STARTER_HERO_ID, findHero } from '../data/heroes'
 import { TOTAL_LEVELS } from '../data/levels'
 import { STARTER_WEAPON_IDS, findWeapon } from '../data/weapons'
 import { STARTING_COINS } from './balance'
-import type { GameState, GameStats } from './types'
+import type { GameState, GameStats, HeroId } from './types'
 
 const STORAGE_KEY = 'eras-of-war:save'
 
@@ -14,6 +15,7 @@ export function createInitialState(): GameState {
     coins: STARTING_COINS,
     ownedWeaponIds: [...STARTER_WEAPON_IDS],
     equippedWeaponId: STARTER_WEAPON_IDS[0] ?? '',
+    heroId: STARTER_HERO_ID,
     currentLevel: 1,
     clearedLevelIds: [],
     campaignComplete: false,
@@ -92,11 +94,20 @@ export function sanitizeState(raw: unknown): GameState {
     furthestReachable,
   )
 
+  // Heroes arrived after the first saves were written, so a save carrying no
+  // hero at all is repaired to the starter rather than discarded. A save naming
+  // a commander this run has not unlocked yet is repaired the same way.
+  const heroCandidate = raw['heroId']
+  const namedHero = typeof heroCandidate === 'string' ? findHero(heroCandidate) : undefined
+  const heroId: HeroId =
+    namedHero && clearedLevelIds.length >= namedHero.unlockAfter ? namedHero.id : STARTER_HERO_ID
+
   return {
     version: SAVE_VERSION,
     coins: readNumber(raw['coins'], initial.coins, 0, Number.MAX_SAFE_INTEGER),
     ownedWeaponIds,
     equippedWeaponId,
+    heroId,
     currentLevel,
     clearedLevelIds,
     campaignComplete: readBoolean(raw['campaignComplete'], false),

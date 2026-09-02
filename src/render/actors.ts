@@ -38,13 +38,21 @@ export interface Actor {
   apply(view: FighterView, side: ViewSide, size: number): void
 }
 
+/**
+ * @param sidearm optional second quad drawn at the fighter's side - the weapon
+ *                the commander is carrying. It cocks back on the wind-up and
+ *                is thrown forward on the follow-through, so the swing reads
+ *                as the character's, not the icon's.
+ */
 export function createActor(
   emoji: Texture,
   radial: Texture,
   quad: BufferGeometry,
   renderOrder: number,
+  sidearm?: Texture,
 ): Actor {
   const [mesh, material] = basic(emoji, quad, renderOrder)
+  const arm = sidearm ? basic(sidearm, quad, renderOrder + 1) : null
 
   // Black over the white radial map gives a soft contact shadow.
   const [shadow, shadowMaterial] = basic(radial, quad, RENDER_ORDER.shadows)
@@ -56,7 +64,7 @@ export function createActor(
   tellMaterial.blending = AdditiveBlending
 
   return {
-    meshes: [shadow, tell, mesh],
+    meshes: arm ? [shadow, tell, mesh, arm[0]] : [shadow, tell, mesh],
 
     apply(view, side, size) {
       // The player holds the right of the field and faces left.
@@ -91,6 +99,18 @@ export function createActor(
       } else if (view.counter) {
         // A loaded counter glows gold until it is spent.
         material.color.setRGB(1.5, 1.28, 0.7)
+      }
+
+      if (arm) {
+        const [armMesh, armMaterial] = arm
+        // Cocked back while winding up, thrown through on the follow-through.
+        const swing =
+          view.windUp > 0 ? -0.55 : view.recover > 0 ? Math.min(1, view.recover / 0.4) * 0.9 : 0
+        const armScale = scale * 0.52
+        armMesh.position.set(x + facing * size * (0.4 + swing * 0.26), y - size * 0.12, LAYER_Z.actors + 0.05)
+        armMesh.scale.set(armScale, armScale, 1)
+        armMesh.rotation.z = -facing * (0.35 + swing * 1.1)
+        armMaterial.opacity = material.opacity
       }
 
       const winding = view.windUp > 0 && view.stagger <= 0
