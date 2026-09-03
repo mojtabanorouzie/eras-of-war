@@ -59,7 +59,6 @@ export function Battle({ setup, playerWeapon, hero, veterancy, onFinished }: Bat
   const showCanvas = !webglFailed && isWebGLAvailable()
 
   const fieldRef = useRef<HTMLDivElement>(null)
-  const surfaceRef = useRef<HTMLDivElement>(null)
   const briefingRef = useRef<HTMLDivElement>(null)
 
   const handleCanvasReady = useCallback(() => undefined, [])
@@ -149,7 +148,7 @@ export function Battle({ setup, playerWeapon, hero, veterancy, onFinished }: Bat
   return (
     <div className="arena">
       <div ref={fieldRef} className="arena__field">
-        <div ref={surfaceRef} className="arena__stage">
+        <div className="arena__stage">
           {showCanvas ? (
             <Suspense fallback={null}>
               <ArenaCanvas
@@ -180,7 +179,6 @@ export function Battle({ setup, playerWeapon, hero, veterancy, onFinished }: Bat
           <ArenaControls
             input={input}
             subscribe={subscribe}
-            surface={surfaceRef}
             active={phase === 'fighting'}
             melee={gun.melee}
           />

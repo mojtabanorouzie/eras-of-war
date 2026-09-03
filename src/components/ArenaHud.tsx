@@ -112,6 +112,7 @@ export function ArenaHud({
     let shownSeconds = -1
     let shownWave = 0
     let wasReloading = false
+    let shotCue: 'shot' | 'shotBig' | 'shotEnergy' | 'swing' | null = null
 
     /** Restarts a CSS animation. The reflow between the two writes is required. */
     const replay = (node: HTMLElement) => {
@@ -249,6 +250,23 @@ export function ArenaHud({
             if (!motion.current) replay(node)
           }
           playCue('hurt')
+        } else if (event.kind === 'muzzle') {
+          // Worked out once and remembered: it cannot change mid-fight, and
+          // this runs on every shot of a ten-rounds-a-second automatic.
+          if (shotCue === null) {
+            shotCue = gun.melee
+              ? 'swing'
+              : gun.overheat
+                ? 'shotEnergy'
+                : gun.splash > 0 || gun.muzzleSpeed === Number.POSITIVE_INFINITY
+                  ? 'shotBig'
+                  : 'shot'
+          }
+          playCue(shotCue)
+        } else if (event.kind === 'reload') {
+          playCue('reload')
+        } else if (event.kind === 'explosion') {
+          playCue('blast')
         } else if (event.kind === 'wave') {
           const node = banner.current
           if (node) {
@@ -259,7 +277,7 @@ export function ArenaHud({
           }
           playCue('battle')
         } else if (event.kind === 'empty') {
-          playCue('tap')
+          playCue('dryFire')
         }
       }
     })

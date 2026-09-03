@@ -409,8 +409,9 @@
   top: 0;
   width: 118px;
   height: 118px;
-  margin-left: -59px;
-  margin-top: -59px;
+  /* Centring is done entirely by the translate(-50%, -50%) the script appends.
+     A negative margin here as well would offset the stick a second time, and
+     it would draw half its own width away from the thumb holding it. */
   border-radius: 50%;
   opacity: 0;
   pointer-events: none;

@@ -975,11 +975,15 @@ function updatePlayer(state: ArenaState, input: ArenaInput, step: number): void 
       (player.sprinting ? SPRINT_MULTIPLIER : 1) *
       (1 - (1 - ADS_MULTIPLIER) * player.ads)
 
-    player.vel.x += (wishX * speed - player.vel.x) * Math.min(1, GROUND_ACCEL * step * 0.1)
-    player.vel.z += (wishZ * speed - player.vel.z) * Math.min(1, GROUND_ACCEL * step * 0.1)
+    // Exponential, so the approach to full speed is identical at any frame
+    // rate. A plain `rate * dt` lerp is only correct in the limit and visibly
+    // drifts between a 60Hz phone and a 120Hz one.
+    const blend = 1 - Math.exp(-GROUND_ACCEL * step)
+    player.vel.x += (wishX * speed - player.vel.x) * blend
+    player.vel.z += (wishZ * speed - player.vel.z) * blend
 
     if (length < 0.05) {
-      const drop = Math.max(0, 1 - GROUND_FRICTION * step)
+      const drop = Math.exp(-GROUND_FRICTION * step)
       player.vel.x *= drop
       player.vel.z *= drop
     }

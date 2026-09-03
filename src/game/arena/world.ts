@@ -41,9 +41,21 @@ export const SPRINT_MULTIPLIER = 1.5
 /** Aiming down sights slows you to this fraction of a walk. */
 export const ADS_MULTIPLIER = 0.45
 
-/** How fast the commander reaches full speed, and how fast they stop. */
-export const GROUND_ACCEL = 46
-export const GROUND_FRICTION = 12
+/**
+ * How fast the commander reaches full speed, and how fast they stop.
+ *
+ * Both are exponential rate constants, in reciprocal seconds, applied as
+ * `1 - exp(-rate * dt)`. That form is what makes them frame-rate independent:
+ * the earlier linear version accelerated measurably differently on a 60Hz
+ * phone and a 120Hz one, and was slow enough besides that the commander took
+ * most of a second to reach a walk and felt like they were wading.
+ *
+ * At this rate a standing start is at full speed in about a fifth of a second,
+ * which is the difference between a shooter that answers the stick and one
+ * that argues with it.
+ */
+export const GROUND_ACCEL = 16
+export const GROUND_FRICTION = 14
 
 /** The dodge roll: how long it lasts, how fast it moves, how long it locks out. */
 export const ROLL_TIME = 0.36

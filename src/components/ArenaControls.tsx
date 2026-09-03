@@ -55,6 +55,19 @@ const SPRINT_THRESHOLD = 0.85
  */
 const TAP_SLOP = 16
 const TAP_TIME = 280
+
+/**
+ * Where the movement stick rests before a thumb has claimed it, measured from
+ * the left edge and up from the bottom.
+ *
+ * The sticks float, which is right for aiming — the whole right side is the
+ * aim surface and there is nothing to miss. It is wrong for movement: a player
+ * opening the arena for the first time saw no controls at all and had to guess
+ * that the left half was a stick. Drawing the movement stick faintly at its
+ * home fixes that without giving up floating, because the moment a thumb lands
+ * anywhere on the left the stick still moves to meet it.
+ */
+const MOVE_STICK_HOME = { x: 96, up: 132 }
 /** How long a tap holds the trigger down, so an automatic gets exactly one shot. */
 const TAP_FIRE_MS = 90
 
@@ -75,15 +88,13 @@ interface ArenaControlsProps {
   input: React.RefObject<ArenaInput>
   /** Registers a per-frame callback with the running fight. */
   subscribe: (draw: ArenaDraw) => () => void
-  /** The element that takes pointer lock on desktop. */
-  surface: React.RefObject<HTMLElement | null>
   /** False during the drop-in and after the fight, so stray taps do nothing. */
   active: boolean
   /** A swung weapon has no sights, so the aim button is not offered. */
   melee: boolean
 }
 
-export function ArenaControls({ input, subscribe, surface, active, melee }: ArenaControlsProps) {
+export function ArenaControls({ input, subscribe, active, melee }: ArenaControlsProps) {
   const layerRef = useRef<HTMLDivElement>(null)
   const moveBaseRef = useRef<HTMLDivElement>(null)
   const moveKnobRef = useRef<HTMLDivElement>(null)
@@ -151,20 +162,37 @@ export function ArenaControls({ input, subscribe, surface, active, melee }: Aren
     const layer = layerRef.current
     if (!layer || !active) return
 
+    /**
+     * @param home where to park the stick when no thumb is on it. Omitted for
+     *             the aim stick, which vanishes instead — drawing a resting
+     *             stick on the right would suggest the aim surface is only
+     *             that circle, when in fact it is the whole half of the screen.
+     */
     const paint = (
       base: HTMLDivElement | null,
       knob: HTMLDivElement | null,
       gesture: Gesture | null,
+      home?: { x: number; up: number },
     ) => {
       if (!base || !knob) return
       if (!gesture) {
-        base.style.opacity = '0'
+        if (!home) {
+          base.style.opacity = '0'
+          return
+        }
+        const rect = layer.getBoundingClientRect()
+        base.style.opacity = '0.34'
+        base.style.transform = `translate(${home.x}px, ${rect.height - home.up}px) translate(-50%, -50%)`
+        knob.style.transform = 'translate(0px, 0px) translate(-50%, -50%)'
         return
       }
       base.style.opacity = '1'
       base.style.transform = `translate(${gesture.originX}px, ${gesture.originY}px) translate(-50%, -50%)`
       knob.style.transform = `translate(${gesture.x * STICK_RADIUS}px, ${-gesture.y * STICK_RADIUS}px) translate(-50%, -50%)`
     }
+
+    paint(moveBaseRef.current, moveKnobRef.current, null, MOVE_STICK_HOME)
+    paint(lookBaseRef.current, lookKnobRef.current, null)
 
     const down = (event: PointerEvent) => {
       // Buttons are children of this layer and mark themselves, so a thumb
@@ -192,7 +220,7 @@ export function ArenaControls({ input, subscribe, surface, active, melee }: Aren
       if (leftHalf) {
         if (move.current) return
         move.current = gesture
-        paint(moveBaseRef.current, moveKnobRef.current, gesture)
+        paint(moveBaseRef.current, moveKnobRef.current, gesture, MOVE_STICK_HOME)
       } else {
         if (look.current) return
         look.current = gesture
@@ -227,7 +255,7 @@ export function ArenaControls({ input, subscribe, surface, active, melee }: Aren
       // is what keeps two thumbs from trading places.
       if (move.current?.pointerId === event.pointerId) {
         update(move.current, event, rect, MOVE_DEAD_ZONE)
-        paint(moveBaseRef.current, moveKnobRef.current, move.current)
+        paint(moveBaseRef.current, moveKnobRef.current, move.current, MOVE_STICK_HOME)
       } else if (look.current?.pointerId === event.pointerId) {
         update(look.current, event, rect, LOOK_DEAD_ZONE)
         paint(lookBaseRef.current, lookKnobRef.current, look.current)
@@ -237,7 +265,7 @@ export function ArenaControls({ input, subscribe, surface, active, melee }: Aren
     const up = (event: PointerEvent) => {
       if (move.current?.pointerId === event.pointerId) {
         move.current = null
-        paint(moveBaseRef.current, moveKnobRef.current, null)
+        paint(moveBaseRef.current, moveKnobRef.current, null, MOVE_STICK_HOME)
         return
       }
       if (look.current?.pointerId !== event.pointerId) return
@@ -332,7 +360,15 @@ export function ArenaControls({ input, subscribe, surface, active, melee }: Aren
   }, [active, input])
 
   useEffect(() => {
-    const element = surface.current
+    // Bound to the control layer, NOT to the canvas underneath it.
+    //
+    // This layer is a full-bleed sibling painted over the arena, so it is what
+    // every click actually lands on. Asking the canvas for pointer lock meant
+    // asking an element that could never receive the click, so lock was never
+    // granted and the mouse never turned the commander — leaving a player who
+    // could walk with WASD but only ever in the direction they spawned facing,
+    // because movement is relative to a camera they had no way to turn.
+    const element = layerRef.current
     if (!element || touch || !active) return
 
     const locked = () => document.pointerLockElement === element
@@ -374,7 +410,7 @@ export function ArenaControls({ input, subscribe, surface, active, melee }: Aren
       element.removeEventListener('contextmenu', menu)
       if (document.pointerLockElement === element) document.exitPointerLock()
     }
-  }, [surface, touch, active, input])
+  }, [touch, active, input])
 
   /* ----------------------------------------------------------------- *
    *  Folding it all into one input, once a frame
@@ -507,10 +543,14 @@ export function ArenaControls({ input, subscribe, surface, active, melee }: Aren
         </>
       ) : null}
 
-      {/* A connected pad has every one of these under a thumb already, so the
-          on-screen set stops being a control and starts being clutter over the
-          arena. It comes straight back if the pad is unplugged. */}
-      <div className={`arena-buttons${pad ? ' is-hidden' : ''}`}>
+      {/* These are thumb controls, and they are offered only to a thumb.
+
+          A connected pad has every one of them under a finger already, and a
+          mouse has the keyboard: showing them there is not just clutter, it is
+          actively harmful, because they sit over the arena and swallow exactly
+          the clicks that are supposed to buy pointer lock. Hidden rather than
+          unmounted, so unplugging a pad brings them straight back. */}
+      <div className={`arena-buttons${!touch || pad ? ' is-hidden' : ''}`}>
         {melee ? null : (
           <button
             type="button"
