@@ -287,7 +287,7 @@ export class ArenaScene {
 
     // The commander first: the muzzle position the effects layer needs comes
     // off the rig this call places.
-    this.commander.apply(view.player, dt, view.elapsed, reducedMotion)
+    this.commander.apply(view.player, view.gun, dt, view.elapsed, reducedMotion)
 
     // Then the camera, because everything after it billboards to the camera's
     // orientation and would otherwise be a frame behind.
