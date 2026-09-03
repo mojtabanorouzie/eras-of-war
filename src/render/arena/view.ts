@@ -82,6 +82,12 @@ export interface CoverView {
   readonly blocksSight: boolean
 }
 
+export interface PackView {
+  readonly id: number
+  readonly pos: Vec2View
+  readonly age: number
+}
+
 export interface ArenaEventView {
   readonly id: number
   readonly kind:
@@ -94,6 +100,7 @@ export interface ArenaEventView {
     | 'reload'
     | 'dodge'
     | 'empty'
+    | 'pickup'
     | 'wave'
   readonly pos: Vec3View
   readonly amount: number
@@ -124,6 +131,7 @@ export interface ArenaView {
   readonly enemies: readonly EnemyView[]
   readonly bullets: readonly BulletView[]
   readonly cover: readonly CoverView[]
+  readonly packs: readonly PackView[]
   readonly events: readonly ArenaEventView[]
   /** 0..1. Spent on camera shake. */
   readonly shake: number

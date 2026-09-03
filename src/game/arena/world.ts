@@ -243,5 +243,28 @@ export const STREAK_WINDOW = 4
 /** Seconds the HUD holds a hit marker. */
 export const HIT_MARKER_TIME = 0.14
 
+/* ------------------------------------------------------------------ *
+ *  Health packs
+ * ------------------------------------------------------------------ */
+
+/**
+ * Every Nth kill drops a pack where the body fell.
+ *
+ * A counter, not a dice roll, because the simulation has no dice — and a rule
+ * beats a roll here anyway: a player who can count knows the next heal is one
+ * kill away and fights toward it, which is a decision, where a lucky drop is
+ * only ever a gift.
+ */
+export const PACK_EVERY_KILLS = 3
+
+/**
+ * A flat heal, not a fraction of maximum health, so the low-health commanders
+ * — the ones a single mistake costs most — get the biggest relative refund.
+ */
+export const PACK_HEAL = 24
+
+/** Walking this close picks a pack up. Comfortably wider than a body. */
+export const PACK_RADIUS = 1.3
+
 /** Longest step the arena will take at once, so a stalled tab cannot tunnel. */
 export const MAX_STEP = 1 / 30

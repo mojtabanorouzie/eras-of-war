@@ -54,6 +54,9 @@ const MINIMAP_WORLD = ARENA_HALF * 2 * MINIMAP_SCALE
 /** Matches the renderer's enemy pool: there are never more bodies than this. */
 const MINIMAP_BLIPS = 12
 
+/** Health packs shown on the map. Matches the drop rule's practical ceiling. */
+const MINIMAP_PACKS = 6
+
 /** Blips stop this many pixels short of the rim, so edge threats stay visible. */
 const MINIMAP_RIM = 6
 
@@ -128,6 +131,7 @@ export function ArenaHud({
   const mapWorld = useRef<HTMLDivElement>(null)
   const mapCanvas = useRef<HTMLCanvasElement>(null)
   const mapBlips = useRef<HTMLDivElement>(null)
+  const mapPacks = useRef<HTMLDivElement>(null)
   const root = useRef<HTMLDivElement>(null)
 
   const motion = useRef(reducedMotion)
@@ -162,6 +166,9 @@ export function ArenaHud({
       ? (Array.from(mapBlips.current.children) as HTMLElement[])
       : []
     const blipKinds: string[] = blipSlots.map(() => '')
+    const packSlots = mapPacks.current
+      ? (Array.from(mapPacks.current.children) as HTMLElement[])
+      : []
 
     /** Restarts a CSS animation. The reflow between the two writes is required. */
     const replay = (node: HTMLElement) => {
@@ -362,6 +369,31 @@ export function ArenaHud({
         }
       }
 
+      // Pack blips share the enemies' rim clamp, so a heal dropped behind you
+      // still shows as a green direction marker at the edge of the circle.
+      let packAt = 0
+      for (const pack of state.packs) {
+        if (packAt >= packSlots.length) break
+        const node = packSlots[packAt]
+        if (!node) continue
+        let px = pack.pos.x - player.pos.x
+        let pz = pack.pos.z - player.pos.z
+        const off = Math.hypot(px, pz)
+        if (off > rimWorld && off > 0) {
+          px = (px / off) * rimWorld
+          pz = (pz / off) * rimWorld
+        }
+        const mx = (player.pos.x + px) * MINIMAP_SCALE + MINIMAP_WORLD / 2
+        const mz = (player.pos.z + pz) * MINIMAP_SCALE + MINIMAP_WORLD / 2
+        node.style.transform = `translate(${mx.toFixed(1)}px, ${mz.toFixed(1)}px) translate(-50%, -50%)`
+        if (node.style.opacity !== '1') node.style.opacity = '1'
+        packAt += 1
+      }
+      for (; packAt < packSlots.length; packAt += 1) {
+        const node = packSlots[packAt]
+        if (node && node.style.opacity !== '0') node.style.opacity = '0'
+      }
+
       const remaining = Math.max(0, Math.ceil(state.timeLimit - state.elapsed))
       if (remaining !== shownSeconds && timerText.current) {
         shownSeconds = remaining
@@ -441,6 +473,18 @@ export function ArenaHud({
                   : 'shot'
           }
           playCue(shotCue)
+        } else if (event.kind === 'pickup') {
+          playCue('heal')
+          const node = damageSlots[damageSlot % Math.max(1, damageSlots.length)]
+          damageSlot += 1
+          if (node) {
+            // The one green number in the game, and the only one with a plus.
+            node.textContent = `+${faNumber(Math.max(1, Math.round(event.amount)))}`
+            node.className = 'arena-dmg arena-dmg--heal'
+            node.style.left = `${48 + ((event.id * 37) % 100) / 12}%`
+            node.style.top = `${40 + ((event.id * 53) % 100) / 10}%`
+            if (!motion.current) replay(node)
+          }
         } else if (event.kind === 'reload') {
           playCue('reload')
         } else if (event.kind === 'explosion') {
@@ -490,6 +534,11 @@ export function ArenaHud({
             <div ref={mapBlips} className="minimap__layer">
               {Array.from({ length: MINIMAP_BLIPS }, (_, index) => (
                 <i key={index} className="minimap__blip" />
+              ))}
+            </div>
+            <div ref={mapPacks} className="minimap__layer">
+              {Array.from({ length: MINIMAP_PACKS }, (_, index) => (
+                <i key={index} className="minimap__pack" />
               ))}
             </div>
           </div>

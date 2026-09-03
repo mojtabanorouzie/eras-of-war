@@ -180,6 +180,33 @@
   box-shadow: 0 0 7px rgba(255, 111, 125, 0.9);
 }
 
+/* A health pack on the map: the game's one green marker. The pulse is gentle
+   enough to draw the eye without reading as a threat. */
+.minimap__pack {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  opacity: 0;
+  background: #49f2a5;
+  box-shadow: 0 0 5px rgba(73, 242, 165, 0.9);
+  animation: minimap-pack-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes minimap-pack-pulse {
+  50% {
+    box-shadow: 0 0 9px rgba(73, 242, 165, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minimap__pack {
+    animation: none;
+  }
+}
+
 /* Pinned to the rim: a direction, not a position. Dimmer says "further". */
 .minimap__blip.is-far {
   opacity: 0.55 !important;
@@ -390,6 +417,11 @@
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
   opacity: 0;
   animation: arena-rise 0.7s ease-out;
+}
+
+.arena-dmg--heal {
+  color: #49f2a5;
+  text-shadow: 0 0 8px rgba(73, 242, 165, 0.65);
 }
 
 .arena-dmg--kill {

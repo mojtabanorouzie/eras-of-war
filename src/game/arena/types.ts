@@ -289,6 +289,20 @@ export interface Cover {
   blocksSight: boolean
 }
 
+/**
+ * A health pack lying where a body fell.
+ *
+ * Deliberately not consumed at full health: walking over one while unhurt
+ * leaves it lying, so a careful player can bank heals near the next wave's
+ * ground instead of wasting them the moment they drop.
+ */
+export interface HealthPack {
+  id: number
+  pos: Vec2
+  /** Seconds since it landed, for the renderer's bob and spin. */
+  age: number
+}
+
 /* ------------------------------------------------------------------ *
  *  Waves
  * ------------------------------------------------------------------ */
@@ -321,6 +335,8 @@ export type ArenaEventKind =
   | 'dodge'
   /** The trigger was pulled on an empty magazine. */
   | 'empty'
+  /** A health pack was collected. `amount` is the health actually restored. */
+  | 'pickup'
   /** A fresh wave dropped in. `amount` carries the wave number, 1-based. */
   | 'wave'
 
@@ -391,6 +407,8 @@ export interface ArenaState {
   enemies: ArenaEnemy[]
   bullets: Bullet[]
   cover: Cover[]
+  /** Packs currently lying on the field. */
+  packs: HealthPack[]
 
   /**
    * The emoji every body in this battle wears, from the level's enemy.
@@ -426,6 +444,7 @@ export interface ArenaState {
   nextBulletId: number
   nextEventId: number
   nextEnemyId: number
+  nextPackId: number
 }
 
 /**

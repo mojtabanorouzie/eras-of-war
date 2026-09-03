@@ -17,6 +17,9 @@ import type {
 } from './types'
 import {
   ACTOR_HEIGHT,
+  PACK_EVERY_KILLS,
+  PACK_HEAL,
+  PACK_RADIUS,
   ASSIST_FRICTION,
   ASSIST_FRICTION_CONE,
   ASSIST_PULL_CONE,
@@ -441,6 +444,8 @@ export function createArena({ gun, hero, enemy, terrain, level, difficulty }: Ar
     killed: 0,
     totalEnemies: forceSize(waves),
 
+    packs: [],
+
     events: [],
     shake: 0,
     hitStop: 0,
@@ -450,6 +455,7 @@ export function createArena({ gun, hero, enemy, terrain, level, difficulty }: Ar
     result: null,
 
     nextBulletId: 1,
+    nextPackId: 1,
     nextEventId: 1,
     nextEnemyId: 1,
   }
@@ -548,6 +554,14 @@ function hurtEnemy(state: ArenaState, enemy: ArenaEnemy, amount: number, at: Vec
     state.player.kills += 1
     state.player.streak += 1
     state.player.streakWindow = STREAK_WINDOW
+
+    // The drop rule, in one line: bodies three, six, nine leave a pack where
+    // they fell. It rides the same counter the finisher reads, so the rule is
+    // exact however the kill arrived — bullet, splash or blade.
+    if (state.killed % PACK_EVERY_KILLS === 0) {
+      state.packs.push({ id: state.nextPackId, pos: { x: enemy.pos.x, z: enemy.pos.z }, age: 0 })
+      state.nextPackId += 1
+    }
 
     const last = state.killed >= state.totalEnemies
     emit(state, 'kill', at, amount, last)
@@ -975,6 +989,32 @@ function assistAim(state: ArenaState, input: ArenaInput, step: number): void {
     const pull = 1 - Math.exp(-ASSIST_PULL_RATE * step)
     player.yaw += bestYawError * pull
     player.pitch = clamp(player.pitch + bestPitchError * pull, -PITCH_LIMIT, PITCH_LIMIT)
+  }
+}
+
+/**
+ * Ages the packs and hands one to a player standing on it.
+ *
+ * At full health nothing is taken: the pack stays where it lies, so heals can
+ * be banked rather than wasted. That makes walking over one always safe.
+ */
+function collectPacks(state: ArenaState, step: number): void {
+  const { player } = state
+  for (const pack of state.packs) pack.age += step
+
+  if (!player.alive || player.health >= player.maxHealth) return
+
+  for (let i = 0; i < state.packs.length; i += 1) {
+    const pack = state.packs[i]
+    if (!pack) continue
+    if (Math.hypot(pack.pos.x - player.pos.x, pack.pos.z - player.pos.z) > PACK_RADIUS) continue
+
+    const healed = Math.min(PACK_HEAL, player.maxHealth - player.health)
+    player.health += healed
+    state.packs.splice(i, 1)
+    emit(state, 'pickup', { x: pack.pos.x, y: 0.5, z: pack.pos.z }, healed)
+    // One pack per frame is plenty; a second one under the same boot waits.
+    return
   }
 }
 
@@ -1485,6 +1525,7 @@ export function advanceArena(state: ArenaState, dt: number, input: ArenaInput): 
   }
 
   state.elapsed += step
+  collectPacks(state, step)
 
   updatePlayer(state, input, step)
   updateWeapon(state, input, step)

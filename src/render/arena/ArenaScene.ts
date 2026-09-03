@@ -19,6 +19,8 @@ import { disposeObject3D } from '../dispose'
 import { createCommander, createEnemyPool } from './arenaActors'
 import type { Commander, EnemyPool } from './arenaActors'
 import { createArenaFx } from './arenaFx'
+import { createArenaPacks } from './arenaPacks'
+import type { ArenaPacks } from './arenaPacks'
 import type { ArenaFx } from './arenaFx'
 import { createArenaTerrain } from './arenaTerrain'
 import type { ArenaTerrain } from './arenaTerrain'
@@ -155,6 +157,7 @@ export class ArenaScene {
   private readonly commander: Commander
   private readonly enemies: EnemyPool
   private readonly fx: ArenaFx
+  private readonly packs: ArenaPacks
   private readonly onContextLost: (() => void) | undefined
 
   private disposed = false
@@ -202,8 +205,15 @@ export class ArenaScene {
     this.commander = createCommander(heroEmoji)
     this.enemies = createEnemyPool()
     this.fx = createArenaFx()
+    this.packs = createArenaPacks()
 
-    this.scene.add(this.terrain.group, this.commander.group, this.enemies.group, this.fx.group)
+    this.scene.add(
+      this.terrain.group,
+      this.commander.group,
+      this.enemies.group,
+      this.fx.group,
+      this.packs.group,
+    )
 
     // Throws when the browser refuses a context. The caller catches and falls
     // back rather than letting the battle screen die.
@@ -296,6 +306,7 @@ export class ArenaScene {
     this.enemies.apply(view.enemies, dt, this.camera.quaternion, reducedMotion)
     this.fx.consume(view.events, this.commander.muzzle(muzzlePoint))
     this.fx.bullets(view.bullets)
+    this.packs.apply(view.packs, reducedMotion)
     this.fx.update(dt, this.camera.quaternion)
 
     this.renderer.render(this.scene, this.camera)
