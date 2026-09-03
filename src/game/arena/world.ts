@@ -67,6 +67,19 @@ export const ROLL_IFRAMES = 0.26
 /** Radians per second the view eases toward the aim while sprinting. */
 export const PITCH_LIMIT = 1.02
 
+/**
+ * The jump: launch speed and the gravity that ends it.
+ *
+ * Deliberately floatier than the real world (apex ~1.37 units, ~0.85s in the
+ * air) because the jump is a combat verb, not decoration: its apex clears the
+ * low shoot-over rubble, so a hop vaults what a walk must go around, and it
+ * clears torso height, so a well-timed leap lets an aimed round pass under
+ * your boots. The roll keeps its own identity — invulnerable but earthbound;
+ * the jump is the opposite: no mercy frames, but geometry works for you.
+ */
+export const JUMP_SPEED = 6.4
+export const PLAYER_GRAVITY = 15
+
 /* ------------------------------------------------------------------ *
  *  Camera
  * ------------------------------------------------------------------ */

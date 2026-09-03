@@ -999,7 +999,7 @@ export function createCommander(heroEmoji: string): Commander {
 
       rig.position.set(
         player.pos.x,
-        (HIP - rollDip * (HIP - ROLL_HIP_HEIGHT)) * (1 - fall * 0.55) + bob,
+        player.y + (HIP - rollDip * (HIP - ROLL_HIP_HEIGHT)) * (1 - fall * 0.55) + bob,
         player.pos.z,
       )
 
@@ -1191,7 +1191,10 @@ export function createCommander(heroEmoji: string): Commander {
 
       /* --- Contact shadow ------------------------------------------------------ */
 
-      const shadowSize = ACTOR_RADIUS * 5.4 * (1 - rollDip * 0.2) * (1 - fall * 0.4)
+      // The shadow stays on the ground and pulls in as the body leaves it —
+      // the one cue that tells a phone-sized screen how high the jump is.
+      const shadowSize =
+        ACTOR_RADIUS * 5.4 * (1 - rollDip * 0.2) * (1 - fall * 0.4) * Math.max(0.45, 1 - player.y * 0.3)
       shadow.position.set(player.pos.x, 0.02, player.pos.z)
       shadow.scale.set(shadowSize, 1, shadowSize)
     },

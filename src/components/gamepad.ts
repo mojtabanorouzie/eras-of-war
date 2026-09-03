@@ -30,8 +30,10 @@ import {
 
 /** Indices into `Gamepad.buttons` under the standard mapping. */
 const BUTTON = {
-  /** A on Xbox, Cross on PlayStation. */
-  dodge: 0,
+  /** A on Xbox, Cross on PlayStation: jump, as every pad has taught. */
+  jump: 0,
+  /** B on Xbox, Circle on PlayStation: the roll, where souls games put it. */
+  dodge: 1,
   /** X on Xbox, Square on PlayStation. */
   reload: 2,
   /** Left bumper — an alternate for aiming, for pads with stiff triggers. */
@@ -71,6 +73,8 @@ export interface PadReading {
   dodge: boolean
   /** True only on the frame Start went down. */
   pause: boolean
+  /** True only on the frame A went down. */
+  jump: boolean
   /** How far from centre the movement stick is, 0..1. Drives the sprint gate. */
   movePush: number
 }
@@ -88,6 +92,7 @@ function emptyReading(): PadReading {
     reload: false,
     dodge: false,
     pause: false,
+    jump: false,
     movePush: 0,
   }
 }
@@ -209,6 +214,7 @@ export function createPadReader(): PadReader {
         reload: edge(pad, BUTTON.reload),
         dodge: edge(pad, BUTTON.dodge),
         pause: edge(pad, BUTTON.pause),
+        jump: edge(pad, BUTTON.jump),
         movePush: move.push,
       }
     },

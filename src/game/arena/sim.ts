@@ -17,6 +17,8 @@ import type {
 } from './types'
 import {
   ACTOR_HEIGHT,
+  JUMP_SPEED,
+  PLAYER_GRAVITY,
   PACK_EVERY_KILLS,
   PACK_HEAL,
   PACK_RADIUS,
@@ -296,8 +298,18 @@ function closestOnCover(piece: Cover, x: number, z: number): { x: number; z: num
  * misbehaves, and it cannot tunnel because nothing moves further than its own
  * radius in a step at these speeds.
  */
-function resolveAgainstWorld(pos: Vec2, radius: number, cover: readonly Cover[]): void {
+function resolveAgainstWorld(
+  pos: Vec2,
+  radius: number,
+  cover: readonly Cover[],
+  height = 0,
+): void {
   for (const piece of cover) {
+    // A body high enough passes clean over a low piece: this one comparison
+    // is the whole of vaulting. Landing inside a footprint is not a special
+    // case — the next grounded frame runs this same resolve and slides the
+    // body out of the nearest face, which finishes the vault on its own.
+    if (piece.height <= height) continue
     const near = closestOnCover(piece, pos.x, pos.z)
     if (near.distance >= radius) continue
 
@@ -436,6 +448,8 @@ function createPlayer(maxHealth: number, gun: GunStats): ArenaPlayer {
   return {
     pos: { x: 0, z: 0 },
     vel: { x: 0, z: 0 },
+    y: 0,
+    vy: 0,
     yaw: 0,
     pitch: 0,
     health: maxHealth,
@@ -752,7 +766,7 @@ export function aimSpread(state: ArenaState): number {
 
 /** The muzzle, in world space. */
 function muzzleOf(player: ArenaPlayer): Vec3 {
-  return { x: player.pos.x, y: MUZZLE_HEIGHT, z: player.pos.z }
+  return { x: player.pos.x, y: MUZZLE_HEIGHT + player.y, z: player.pos.z }
 }
 
 /**
@@ -795,7 +809,7 @@ function swing(state: ArenaState): void {
 
   player.pos.x += forward.x * reach
   player.pos.z += forward.z * reach
-  resolveAgainstWorld(player.pos, ACTOR_RADIUS, state.cover)
+  resolveAgainstWorld(player.pos, ACTOR_RADIUS, state.cover, player.y)
 
   // One swing is one shot however many bodies are caught in the arc, so
   // cleaving three enemies reads as a single clean hit rather than as 300%
@@ -1120,6 +1134,24 @@ function updatePlayer(state: ArenaState, input: ArenaInput, step: number): void 
   player.streakWindow = countDown(player.streakWindow, step)
   if (player.streakWindow <= 0) player.streak = 0
 
+  // The jump. An edge like the roll, but the two never overlap: rolling is
+  // committed to the ground, and the air holds no mercy frames — the jump's
+  // whole defence is that geometry stops lining up.
+  if (input.jump) {
+    input.jump = false
+    if (player.y <= 0 && player.rollLeft <= 0 && player.alive) {
+      player.vy = JUMP_SPEED
+    }
+  }
+  if (player.y > 0 || player.vy > 0) {
+    player.vy -= PLAYER_GRAVITY * step
+    player.y += player.vy * step
+    if (player.y <= 0) {
+      player.y = 0
+      player.vy = 0
+    }
+  }
+
   // A stick gets help a mouse does not need. Applied before the deltas are
   // consumed, so friction scales what magnetism then finishes.
   if (input.assisted) assistAim(state, input, step)
@@ -1204,7 +1236,7 @@ function updatePlayer(state: ArenaState, input: ArenaInput, step: number): void 
 
   player.pos.x += player.vel.x * step
   player.pos.z += player.vel.z * step
-  resolveAgainstWorld(player.pos, ACTOR_RADIUS, state.cover)
+  resolveAgainstWorld(player.pos, ACTOR_RADIUS, state.cover, player.y)
 }
 
 /* ------------------------------------------------------------------ *
@@ -1270,7 +1302,10 @@ function advanceBullets(state: ArenaState, step: number): void {
           if (distance < 0) distance = (-b + root) / (2 * a)
           if (distance >= 0 && distance <= Math.min(travelled, blocked)) {
             const y = previous.y + dir.y * distance
-            if (y >= 0 && y <= ACTOR_HEIGHT) {
+            // The capsule rides the jump: a round aimed at a chest that is no
+            // longer there passes under the boots, which is the jump's whole
+            // defensive value.
+            if (y >= state.player.y && y <= state.player.y + ACTOR_HEIGHT) {
               impactAt = {
                 x: previous.x + dir.x * distance,
                 y,
@@ -1367,9 +1402,12 @@ function fireEnemyProjectile(state: ArenaState, enemy: ArenaEnemy): void {
 
   if (enemy.projectileSpeed <= 0) {
     // A blow rather than a shot: it lands now, if it can still reach. Stepping
-    // out of range during the wind-up is a real and intended escape.
+    // out of range during the wind-up is a real and intended escape — and so
+    // is being in the air when the blade comes through at chest height. The
+    // bomber is unmoved by either: its payload is a sphere, not a swing.
     const distance = Math.hypot(player.pos.x - enemy.pos.x, player.pos.z - enemy.pos.z)
-    if (distance <= enemy.attackRange) hurtPlayer(state, enemy.damage, from)
+    const overhead = state.player.y > ACTOR_HEIGHT * 0.6
+    if (distance <= enemy.attackRange && !overhead) hurtPlayer(state, enemy.damage, from)
     return
   }
 
@@ -1383,7 +1421,9 @@ function fireEnemyProjectile(state: ArenaState, enemy: ArenaEnemy): void {
   const targetZ = player.pos.z + player.vel.z * flightTime * lead
 
   const dx = targetX - from.x
-  const dy = ACTOR_HEIGHT * 0.55 - from.y
+  // Aimed at the torso wherever the torso IS — an airborne player is led
+  // upward, so the leap dodges rounds already in flight, never future ones.
+  const dy = state.player.y + ACTOR_HEIGHT * 0.55 - from.y
   const dz = targetZ - from.z
   const distance = Math.hypot(dx, dy, dz) || 1
   const dir = { x: dx / distance, y: dy / distance, z: dz / distance }

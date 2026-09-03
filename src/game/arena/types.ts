@@ -168,6 +168,10 @@ export interface ArenaPlayer {
   overheated: boolean
   fireCooldown: number
 
+  /** Height above the ground. Zero is standing on it. */
+  y: number
+  /** Vertical speed, positive upward. Zero while grounded. */
+  vy: number
   /** Seconds left of the roll. Movement is locked to `rollDir` while above 0. */
   rollLeft: number
   rollDir: Vec2
@@ -492,6 +496,8 @@ export interface ArenaInput {
   reload: boolean
   /** Edge-triggered. The simulation clears it once it has acted. */
   dodge: boolean
+  /** Edge-triggered. Grounded players leap; airborne presses are spent, not banked. */
+  jump: boolean
   /**
    * True while the look deltas come from a stick — a thumb or a gamepad — and
    * aim assist should therefore apply. The input layer keys this off the last
@@ -512,6 +518,7 @@ export function createArenaInput(): ArenaInput {
     sprint: false,
     reload: false,
     dodge: false,
+    jump: false,
     assisted: false,
   }
 }

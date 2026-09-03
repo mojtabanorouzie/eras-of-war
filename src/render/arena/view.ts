@@ -34,6 +34,8 @@ export interface Vec3View {
 
 export interface PlayerView {
   readonly pos: Vec2View
+  /** Height above the ground. The camera and the rig both ride it. */
+  readonly y: number
   readonly vel: Vec2View
   readonly yaw: number
   readonly pitch: number

@@ -359,8 +359,10 @@ export class ArenaScene {
 
     cameraPivot.set(
       player.pos.x,
-      // A downed commander's camera settles toward the ground with them.
-      PIVOT_HEIGHT * (player.alive ? 1 : 0.5),
+      // A downed commander's camera settles toward the ground with them, and
+      // an airborne one carries the camera up — half-strength, so the world
+      // does not lurch on every hop.
+      player.y * 0.5 + PIVOT_HEIGHT * (player.alive ? 1 : 0.5),
       player.pos.z,
     )
     cameraDesired.set(

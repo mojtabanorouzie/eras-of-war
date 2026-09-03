@@ -356,6 +356,11 @@ export function ArenaControls({ input, subscribe, active, paused, onPause, melee
         return
       }
       if (event.key === ' ') {
+        // Space is the one key every shooter has ever meant "jump" by; the
+        // roll moves to C rather than fighting two decades of muscle memory.
+        event.preventDefault()
+        input.current.jump = true
+      } else if (event.key.toLowerCase() === 'c') {
         event.preventDefault()
         input.current.dodge = true
       } else if (event.key.toLowerCase() === 'r') {
@@ -524,6 +529,7 @@ export function ArenaControls({ input, subscribe, active, paused, onPause, melee
       // button pressed on a frame the fight had already consumed.
       if (gamepad.reload) command.reload = true
       if (gamepad.dodge) command.dodge = true
+      if (gamepad.jump) command.jump = true
 
       if (gamepad.connected && haptics.current) {
         for (const event of state.events) {
@@ -546,7 +552,7 @@ export function ArenaControls({ input, subscribe, active, paused, onPause, melee
     held.current[control] = false
   }
 
-  const tap = (action: 'reload' | 'dodge') => (event: React.PointerEvent<HTMLButtonElement>) => {
+  const tap = (action: 'reload' | 'dodge' | 'jump') => (event: React.PointerEvent<HTMLButtonElement>) => {
     event.preventDefault()
     event.stopPropagation()
     input.current[action] = true
@@ -597,6 +603,14 @@ export function ArenaControls({ input, subscribe, active, paused, onPause, melee
           onPointerDown={tap('reload')}
         >
           ⟳
+        </button>
+        <button
+          type="button"
+          data-arena-button=""
+          className="abtn abtn--jump"
+          onPointerDown={tap('jump')}
+        >
+          ⬆
         </button>
         <button
           type="button"
