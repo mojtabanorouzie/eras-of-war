@@ -95,6 +95,123 @@
   gap: var(--s-2);
 }
 
+/* The minimap: a circular window onto a world layer that rotates so the way
+   the commander faces is always up. Physical positioning on purpose — a map
+   is spatial, not textual, so RTL has no say here. It lives in the HUD layer,
+   which is pointer-events: none, so a thumb aiming across it is never stolen. */
+.minimap {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 62px);
+  right: 10px;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(16, 12, 42, 0.55);
+  /* The ring is an inset shadow, NOT a border, and that is load-bearing: a
+     layout border shrinks the rotor's box to 100px, its rotation centre drifts
+     to (50,50) while the maths centres everything at 52, and every blip ends
+     up rotated around a point two pixels off the player. Measured, not
+     theorised — the deviation matched the rotated eccentricity exactly. */
+  box-shadow:
+    inset 0 0 0 2px rgba(246, 243, 255, 0.22),
+    0 2px 10px rgba(16, 12, 42, 0.45);
+}
+
+.minimap__rotor {
+  position: absolute;
+  inset: 0;
+  /* One rotation for the ground and every blip at once. */
+  will-change: transform;
+}
+
+.minimap__world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 130px; /* MINIMAP_WORLD: the whole arena at 2.5 px per unit. */
+  height: 130px;
+  will-change: transform;
+}
+
+.minimap__ground {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.minimap__layer {
+  position: absolute;
+  inset: 0;
+}
+
+.minimap__blip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  opacity: 0;
+  /* The kind palettes match the bodies in the arena, so the map teaches the
+     colours for free: rust for rushers, steel for gunners, bronze for heavies. */
+  background: #ff6f5e;
+  box-shadow: 0 0 4px rgba(255, 111, 94, 0.8);
+}
+
+.minimap__blip--gunner {
+  background: #6fa8ff;
+  box-shadow: 0 0 4px rgba(111, 168, 255, 0.8);
+}
+
+.minimap__blip--heavy {
+  width: 9px;
+  height: 9px;
+  background: #d9a244;
+  box-shadow: 0 0 4px rgba(217, 162, 68, 0.8);
+}
+
+.minimap__blip--boss {
+  width: 12px;
+  height: 12px;
+  background: var(--violet);
+  border: 2px solid var(--rose);
+  box-shadow: 0 0 7px rgba(255, 111, 125, 0.9);
+}
+
+/* Pinned to the rim: a direction, not a position. Dimmer says "further". */
+.minimap__blip.is-far {
+  opacity: 0.55 !important;
+}
+
+/* The player. Fixed at the centre while the world turns underneath — a small
+   upward arrow, because up is, by construction, wherever they are looking. */
+.minimap__player {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translate(-50%, -58%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 9px solid var(--teal);
+  filter: drop-shadow(0 0 3px rgba(53, 227, 167, 0.9));
+}
+
+/* The view cone: a faint wedge opening upward from the centre. */
+.minimap__cone {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from -31deg at 50% 50%,
+    rgba(53, 227, 167, 0.16) 0deg 62deg,
+    transparent 62deg 360deg
+  );
+}
+
 /* The boss bar. One wide track under the top row, in the register every
    action game has taught: this enemy is the fight now. Hidden and empty for
    the five battles that have no boss. */
@@ -102,7 +219,9 @@
   position: absolute;
   top: calc(env(safe-area-inset-top) + 66px);
   left: 50%;
-  width: min(520px, 86%);
+  /* Narrower than it once was: the minimap owns the top-right corner now,
+     and the two may share a screen for the whole boss fight. */
+  width: min(420px, 62%);
   display: grid;
   gap: 4px;
   opacity: 0;

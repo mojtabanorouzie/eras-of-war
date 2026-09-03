@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { playCue } from '../game/audio'
 import { aimSpread, enemiesLeft } from '../game/arena/sim'
+import { ARENA_HALF } from '../game/arena/world'
 import { faNumber } from '../game/format'
 import type { ArenaEnemy } from '../game/arena/types'
 import type { ArenaDraw } from './useArena'
@@ -24,6 +25,37 @@ const DAMAGE_SLOTS = 8
 
 /** Pooled arcs pointing at whatever just hit you. */
 const HURT_SLOTS = 4
+
+/**
+ * The minimap.
+ *
+ * Player-centred and rotating, so straight up on the map is always the way the
+ * commander is facing — the question it exists to answer is "what is flanking
+ * me relative to where I am looking", and a fixed north-up map would make the
+ * player do that rotation in their head mid-fight.
+ *
+ * The rotation is nearly free: the arena's cover never moves, so it is painted
+ * once onto a small canvas that spins as a whole under one CSS transform, and
+ * only the dozen enemy blips are repositioned per frame.
+ *
+ * FACING-UP MATHS, derived once and then trusted: the commander's forward on
+ * the ground is (-sin yaw, -cos yaw) in (x, z), and the map draws +x to the
+ * right and +z downward. A CSS rotation by +yaw sends that vector to (0, -1) —
+ * straight up — for every yaw, so the rotor's transform is simply the yaw.
+ */
+const MINIMAP_SIZE = 104
+
+/** Map pixels per world unit. At 2.5 the visible circle spans ~21 units. */
+const MINIMAP_SCALE = 2.5
+
+/** The full arena, in map pixels. */
+const MINIMAP_WORLD = ARENA_HALF * 2 * MINIMAP_SCALE
+
+/** Matches the renderer's enemy pool: there are never more bodies than this. */
+const MINIMAP_BLIPS = 12
+
+/** Blips stop this many pixels short of the rim, so edge threats stay visible. */
+const MINIMAP_RIM = 6
 
 /** Below this fraction of health the screen starts warning you. */
 const DANGER = 0.3
@@ -92,6 +124,10 @@ export function ArenaHud({
   const streakLabel = useRef<HTMLDivElement>(null)
   const damageLayer = useRef<HTMLDivElement>(null)
   const hurtLayer = useRef<HTMLDivElement>(null)
+  const mapRotor = useRef<HTMLDivElement>(null)
+  const mapWorld = useRef<HTMLDivElement>(null)
+  const mapCanvas = useRef<HTMLCanvasElement>(null)
+  const mapBlips = useRef<HTMLDivElement>(null)
   const root = useRef<HTMLDivElement>(null)
 
   const motion = useRef(reducedMotion)
@@ -121,6 +157,11 @@ export function ArenaHud({
     let bossOn = false
     let bossCritical = false
     let bossGhostAt = 1
+    let mapDrawn = false
+    const blipSlots = mapBlips.current
+      ? (Array.from(mapBlips.current.children) as HTMLElement[])
+      : []
+    const blipKinds: string[] = blipSlots.map(() => '')
 
     /** Restarts a CSS animation. The reflow between the two writes is required. */
     const replay = (node: HTMLElement) => {
@@ -228,6 +269,96 @@ export function ArenaHud({
         if (critical !== bossCritical) {
           bossCritical = critical
           bossWrap.current?.classList.toggle('is-critical', critical)
+        }
+      }
+
+      /* -------- the minimap -------- */
+      // The static layer is painted the first time cover exists. Everything on
+      // it is geometry, never text, so nothing here fights the RTL rule.
+      if (!mapDrawn && state.cover.length > 0 && mapCanvas.current) {
+        mapDrawn = true
+        const canvas = mapCanvas.current
+        const context = canvas.getContext('2d')
+        if (context) {
+          // Drawn at 2x and displayed at half, so the blips' crisp circles do
+          // not sit on a blurry background on a high-density screen.
+          const px = MINIMAP_WORLD * 2
+          canvas.width = px
+          canvas.height = px
+          context.scale(2 * MINIMAP_SCALE, 2 * MINIMAP_SCALE)
+          context.translate(ARENA_HALF, ARENA_HALF)
+
+          context.strokeStyle = 'rgba(246, 243, 255, 0.4)'
+          context.lineWidth = 0.5
+          context.strokeRect(-ARENA_HALF, -ARENA_HALF, ARENA_HALF * 2, ARENA_HALF * 2)
+
+          for (const piece of state.cover) {
+            // Shoot-over rubble matters less to a route than a wall does.
+            context.fillStyle = piece.blocksSight
+              ? 'rgba(246, 243, 255, 0.34)'
+              : 'rgba(246, 243, 255, 0.14)'
+            if (piece.shape === 'cylinder') {
+              context.beginPath()
+              context.arc(piece.x, piece.z, piece.halfX, 0, Math.PI * 2)
+              context.fill()
+            } else {
+              context.save()
+              context.translate(piece.x, piece.z)
+              // Canvas angles run the opposite way to the arena's yaw.
+              context.rotate(-piece.rotation)
+              context.fillRect(-piece.halfX, -piece.halfZ, piece.halfX * 2, piece.halfZ * 2)
+              context.restore()
+            }
+          }
+        }
+      }
+
+      if (mapRotor.current) {
+        mapRotor.current.style.transform = `rotate(${player.yaw.toFixed(4)}rad)`
+      }
+      if (mapWorld.current) {
+        const originX = MINIMAP_SIZE / 2 - (player.pos.x * MINIMAP_SCALE + MINIMAP_WORLD / 2)
+        const originZ = MINIMAP_SIZE / 2 - (player.pos.z * MINIMAP_SCALE + MINIMAP_WORLD / 2)
+        mapWorld.current.style.transform = `translate(${originX.toFixed(1)}px, ${originZ.toFixed(1)}px)`
+      }
+
+      // Blips. Clamped to the rim in WORLD space — a circle around the player
+      // survives the rotor's rotation, so the clamp needs no angle maths.
+      const rimWorld = (MINIMAP_SIZE / 2 - MINIMAP_RIM) / MINIMAP_SCALE
+      let blip = 0
+      for (const foe of state.enemies) {
+        if (!foe.alive || blip >= blipSlots.length) continue
+        const node = blipSlots[blip]
+        if (!node) continue
+
+        let x = foe.pos.x - player.pos.x
+        let z = foe.pos.z - player.pos.z
+        const away = Math.hypot(x, z)
+        const clamped = away > rimWorld
+        if (clamped && away > 0) {
+          x = (x / away) * rimWorld
+          z = (z / away) * rimWorld
+        }
+
+        const mapX = (player.pos.x + x) * MINIMAP_SCALE + MINIMAP_WORLD / 2
+        const mapZ = (player.pos.z + z) * MINIMAP_SCALE + MINIMAP_WORLD / 2
+        node.style.transform = `translate(${mapX.toFixed(1)}px, ${mapZ.toFixed(1)}px) translate(-50%, -50%)`
+
+        // Class writes only on change: twelve className assignments a frame
+        // would thrash style recalculation for nothing.
+        const look = `${foe.kind}${clamped ? ' far' : ''}`
+        if (blipKinds[blip] !== look) {
+          blipKinds[blip] = look
+          node.className = `minimap__blip minimap__blip--${foe.kind}${clamped ? ' is-far' : ''}`
+        }
+        if (node.style.opacity !== '1') node.style.opacity = '1'
+        blip += 1
+      }
+      for (; blip < blipSlots.length; blip += 1) {
+        const node = blipSlots[blip]
+        if (node && node.style.opacity !== '0') {
+          node.style.opacity = '0'
+          blipKinds[blip] = ''
         }
       }
 
@@ -350,6 +481,24 @@ export function ArenaHud({
             {faNumber(0)}
           </span>
         </div>
+      </div>
+
+      <div className="minimap" aria-hidden="true">
+        <div ref={mapRotor} className="minimap__rotor">
+          <div ref={mapWorld} className="minimap__world">
+            <canvas ref={mapCanvas} className="minimap__ground" />
+            <div ref={mapBlips} className="minimap__layer">
+              {Array.from({ length: MINIMAP_BLIPS }, (_, index) => (
+                <i key={index} className="minimap__blip" />
+              ))}
+            </div>
+          </div>
+        </div>
+        {/* Outside the rotor on purpose: the map turns, the player never does.
+            The wedge above the arrow is the view cone, and it is honest — up
+            IS where the camera points. */}
+        <div className="minimap__cone" />
+        <div className="minimap__player" />
       </div>
 
       {/* Empty and invisible until a boss actually stands on the field, so
