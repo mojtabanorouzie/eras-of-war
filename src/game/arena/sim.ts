@@ -1,5 +1,5 @@
 import { MAX_HEALTH } from '../balance'
-import type { Enemy, Hero, Level, Terrain } from '../types'
+import type { Difficulty, Enemy, Hero, Level, Terrain } from '../types'
 import { coverFor, forceSize, wavesFor } from './squad'
 import type {
   ArenaEnemy,
@@ -413,13 +413,15 @@ export interface ArenaOptions {
   enemy: Enemy
   terrain: Terrain
   level: Level
+  difficulty: Difficulty
 }
 
-export function createArena({ gun, hero, enemy, terrain, level }: ArenaOptions): ArenaState {
+export function createArena({ gun, hero, enemy, terrain, level, difficulty }: ArenaOptions): ArenaState {
   const waves = wavesFor(enemy, terrain, level)
 
   return {
     phase: 'briefing',
+    difficulty,
     elapsed: 0,
     timeLimit: ARENA_TIMEOUT,
     briefingLeft: BRIEFING_SECONDS,
@@ -495,16 +497,20 @@ function spawnWave(state: ArenaState): void {
       pos,
       vel: { x: 0, z: 0 },
       yaw: Math.atan2(-(state.player.pos.x - pos.x), -(state.player.pos.z - pos.z)),
-      health: member.health,
-      maxHealth: member.health,
-      damage: member.damage,
+      // Difficulty lands here and in the wind-up below, and nowhere else: the
+      // whole setting is four multipliers applied at the moment an enemy is
+      // born or swings, so every other line of the fight is provably shared
+      // by all three modes.
+      health: member.health * state.difficulty.enemyHealth,
+      maxHealth: member.health * state.difficulty.enemyHealth,
+      damage: member.damage * state.difficulty.enemyDamage,
       cycle: profile.cycle,
       // Staggered on purpose. A wave whose cooldowns all started at zero would
       // wind up in unison and land as one unreadable wall of damage instead of
       // a sequence of threats the player can actually answer one at a time.
       attackCooldown: 0.5 + index * 0.45,
       windUp: 0,
-      speed: profile.speed,
+      speed: profile.speed * state.difficulty.enemySpeed,
       preferredRange: profile.preferredRange,
       attackRange: profile.attackRange,
       projectileSpeed: profile.projectileSpeed,
@@ -1361,7 +1367,7 @@ function updateEnemy(state: ArenaState, enemy: ArenaEnemy, step: number): void {
   const canReach = distance <= enemy.attackRange
   const needsSight = enemy.projectileSpeed > 0
   if (canReach && enemy.attackCooldown <= 0 && (!needsSight || canSee)) {
-    enemy.windUp = profile.windUp
+    enemy.windUp = profile.windUp * state.difficulty.windUp
     enemy.attackCooldown = enemy.cycle
   }
 }

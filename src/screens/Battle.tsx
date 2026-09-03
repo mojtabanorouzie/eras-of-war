@@ -10,7 +10,7 @@ import { playCue } from '../game/audio'
 import { simulateBattle } from '../game/battleEngine'
 import { faNumber } from '../game/format'
 import type { BattleSetup } from '../game/progression'
-import type { Hero, Weapon } from '../game/types'
+import type { Difficulty, Hero, Weapon } from '../game/types'
 
 /**
  * The battlefield.
@@ -36,10 +36,12 @@ interface BattleProps {
   hero: Hero
   /** Veterancy earned so far; the same value the engine is given. */
   veterancy: number
+  /** Frozen when the battle starts, like the rest of the kit. */
+  difficulty: Difficulty
   onFinished: (result: ArenaResult) => void
 }
 
-export function Battle({ setup, playerWeapon, hero, veterancy, onFinished }: BattleProps) {
+export function Battle({ setup, playerWeapon, hero, veterancy, difficulty, onFinished }: BattleProps) {
   const { terrain, enemy, level } = setup
   const reducedMotion = useReducedMotion()
 
@@ -51,7 +53,10 @@ export function Battle({ setup, playerWeapon, hero, veterancy, onFinished }: Bat
   )
 
   const arena = useArena(
-    useMemo(() => ({ gun, hero, enemy, terrain, level }), [gun, hero, enemy, terrain, level]),
+    useMemo(
+      () => ({ gun, hero, enemy, terrain, level, difficulty }),
+      [gun, hero, enemy, terrain, level, difficulty],
+    ),
   )
   const { phase, result, subscribe, input } = arena
 

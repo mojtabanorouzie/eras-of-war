@@ -1,10 +1,11 @@
+import { DIFFICULTIES, findDifficulty } from '../data/difficulties'
 import { HEROES, findHero } from '../data/heroes'
 import { LEVELS, TOTAL_LEVELS, findLevel } from '../data/levels'
 import { findEnemy } from '../data/enemies'
 import { findTerrain } from '../data/terrains'
 import { WEAPONS, findWeapon } from '../data/weapons'
 import { SCORE, VETERANCY_PER_WIN } from './balance'
-import type { Enemy, GameState, Hero, Level, Terrain, Weapon } from './types'
+import type { Difficulty, Enemy, GameState, Hero, Level, Terrain, Weapon } from './types'
 
 /** Every win makes the whole army a little better, whatever they are holding. */
 export function veterancyOf(state: GameState): number {
@@ -32,6 +33,12 @@ export function isHeroUnlocked(state: GameState, hero: Hero): boolean {
 
 export function unlockedHeroes(state: GameState): Hero[] {
   return HEROES.filter((hero) => isHeroUnlocked(state, hero))
+}
+
+export function selectedDifficulty(state: GameState): Difficulty {
+  // Storage guarantees the id is real, but fall back rather than throw. The
+  // fallback is normal — index 1 — because that is the game as tuned.
+  return findDifficulty(state.difficulty) ?? DIFFICULTIES[1]!
 }
 
 export function selectedHero(state: GameState): Hero {

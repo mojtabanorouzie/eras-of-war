@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer } from 'react'
+import { findDifficulty } from '../data/difficulties'
 import { findHero } from '../data/heroes'
 import { TOTAL_LEVELS } from '../data/levels'
 import { findWeapon } from '../data/weapons'
@@ -13,6 +14,7 @@ export type GameAction =
   | { type: 'buy'; weaponId: string }
   | { type: 'battleResolved'; level: Level; won: boolean }
   | { type: 'toggleMute' }
+  | { type: 'setDifficulty'; difficultyId: string }
   | { type: 'reset' }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
@@ -62,9 +64,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'toggleMute':
       return { ...state, muted: !state.muted }
 
+    case 'setDifficulty': {
+      const difficulty = findDifficulty(action.difficultyId)
+      if (!difficulty) return state
+      return { ...state, difficulty: difficulty.id }
+    }
+
     case 'reset':
-      // Sound preference is a device setting, not campaign progress.
-      return { ...createInitialState(), muted: state.muted }
+      // Sound and difficulty are how this player likes to play, not campaign
+      // progress — wiping the campaign should not also wipe their preferences.
+      return { ...createInitialState(), muted: state.muted, difficulty: state.difficulty }
   }
 }
 
@@ -75,6 +84,7 @@ export interface GameApi {
   buy: (weaponId: string) => void
   resolveBattle: (level: Level, won: boolean) => void
   toggleMute: () => void
+  setDifficulty: (difficultyId: string) => void
   resetGame: () => void
 }
 
@@ -97,13 +107,17 @@ export function useGame(): GameApi {
     [],
   )
   const toggleMute = useCallback(() => dispatch({ type: 'toggleMute' }), [])
+  const setDifficulty = useCallback(
+    (difficultyId: string) => dispatch({ type: 'setDifficulty', difficultyId }),
+    [],
+  )
   const resetGame = useCallback(() => {
     clearState()
     dispatch({ type: 'reset' })
   }, [])
 
   return useMemo(
-    () => ({ state, equip, chooseHero, buy, resolveBattle, toggleMute, resetGame }),
-    [state, equip, chooseHero, buy, resolveBattle, toggleMute, resetGame],
+    () => ({ state, equip, chooseHero, buy, resolveBattle, toggleMute, setDifficulty, resetGame }),
+    [state, equip, chooseHero, buy, resolveBattle, toggleMute, setDifficulty, resetGame],
   )
 }

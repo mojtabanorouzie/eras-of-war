@@ -1,8 +1,9 @@
+import { DEFAULT_DIFFICULTY_ID, findDifficulty } from '../data/difficulties'
 import { STARTER_HERO_ID, findHero } from '../data/heroes'
 import { TOTAL_LEVELS } from '../data/levels'
 import { STARTER_WEAPON_IDS, findWeapon } from '../data/weapons'
 import { STARTING_COINS } from './balance'
-import type { GameState, GameStats, HeroId } from './types'
+import type { DifficultyId, GameState, GameStats, HeroId } from './types'
 
 const STORAGE_KEY = 'eras-of-war:save'
 
@@ -20,6 +21,7 @@ export function createInitialState(): GameState {
     clearedLevelIds: [],
     campaignComplete: false,
     muted: false,
+    difficulty: DEFAULT_DIFFICULTY_ID,
     stats: { battlesWon: 0, battlesLost: 0, coinsEarned: 0, coinsSpent: 0 },
   }
 }
@@ -102,6 +104,14 @@ export function sanitizeState(raw: unknown): GameState {
   const heroId: HeroId =
     namedHero && clearedLevelIds.length >= namedHero.unlockAfter ? namedHero.id : STARTER_HERO_ID
 
+  // Difficulty arrived after the first saves were written, exactly as heroes
+  // did, so a save carrying none — or naming one that does not exist — is
+  // repaired to normal rather than discarded.
+  const difficultyCandidate = raw['difficulty']
+  const namedDifficulty =
+    typeof difficultyCandidate === 'string' ? findDifficulty(difficultyCandidate) : undefined
+  const difficulty: DifficultyId = namedDifficulty ? namedDifficulty.id : DEFAULT_DIFFICULTY_ID
+
   return {
     version: SAVE_VERSION,
     coins: readNumber(raw['coins'], initial.coins, 0, Number.MAX_SAFE_INTEGER),
@@ -112,6 +122,7 @@ export function sanitizeState(raw: unknown): GameState {
     clearedLevelIds,
     campaignComplete: readBoolean(raw['campaignComplete'], false),
     muted: readBoolean(raw['muted'], false),
+    difficulty,
     stats: readStats(raw['stats']),
   }
 }

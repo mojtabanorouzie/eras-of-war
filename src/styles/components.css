@@ -404,3 +404,35 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Segmented choice: one slot per option, the active one filled. Used for the
+   difficulty picker; generic on purpose so the next three-way choice reuses it. */
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  padding: 5px;
+  border-radius: var(--r-md);
+  background: rgba(16, 12, 42, 0.55);
+  border: 1px solid rgba(246, 243, 255, 0.14);
+}
+
+.seg__option {
+  min-height: var(--tap);
+  border: 0;
+  border-radius: calc(var(--r-md) - 4px);
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.seg__option.is-active {
+  /* Gold, because gold is what this interface uses for "chosen" — the same
+     colour the equipped weapon card and the coin badge already own. */
+  background: var(--gold);
+  color: var(--bg-deep);
+}

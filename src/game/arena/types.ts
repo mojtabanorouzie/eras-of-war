@@ -17,6 +17,8 @@
  * text is ever drawn into WebGL. Labels stay in the DOM above the canvas.
  */
 
+import type { Difficulty } from '../types'
+
 export type ArenaPhase = 'briefing' | 'fighting' | 'over'
 
 export type Side = 'player' | 'enemy'
@@ -376,6 +378,8 @@ export interface ArenaResult {
 
 export interface ArenaState {
   phase: ArenaPhase
+  /** The multipliers this fight was started with. Frozen for its whole life. */
+  difficulty: Difficulty
   elapsed: number
   /** Seconds the player has to clear the field. */
   timeLimit: number

@@ -2,18 +2,21 @@ import { useState } from 'react'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { StatGrid } from '../components/StatGrid'
 import { TopBar } from '../components/TopBar'
+import { DIFFICULTIES } from '../data/difficulties'
 import { WEAPONS } from '../data/weapons'
 import { faNumber, formatCoins } from '../game/format'
+import { selectedDifficulty } from '../game/progression'
 import type { GameState } from '../game/types'
 
 interface SettingsProps {
   state: GameState
   onToggleMute: () => void
+  onSetDifficulty: (difficultyId: string) => void
   onReset: () => void
   onBack: () => void
 }
 
-export function Settings({ state, onToggleMute, onReset, onBack }: SettingsProps) {
+export function Settings({ state, onToggleMute, onSetDifficulty, onReset, onBack }: SettingsProps) {
   const [confirming, setConfirming] = useState(false)
 
   return (
@@ -57,6 +60,34 @@ export function Settings({ state, onToggleMute, onReset, onBack }: SettingsProps
               {state.muted ? 'خاموش' : 'روشن'}
             </button>
           </div>
+        </section>
+
+        <section className="card stack stack--tight">
+          <p className="subtitle">درجهٔ سختی</p>
+          <p className="small">
+            فقط دشمن‌ها عوض می‌شوند — ضربه‌هایشان، جانشان و مهلتی که پیش از هر ضربه می‌دهند. سلاح،
+            زمین و سکه‌ها در هر سه حالت یکی است، پس درسِ بازی همان می‌ماند. از نبرد بعدی اعمال
+            می‌شود.
+          </p>
+          <div className="seg" role="group" aria-label="درجهٔ سختی">
+            {DIFFICULTIES.map((difficulty) => {
+              const active = state.difficulty === difficulty.id
+              return (
+                <button
+                  key={difficulty.id}
+                  type="button"
+                  className={`seg__option${active ? ' is-active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => onSetDifficulty(difficulty.id)}
+                >
+                  <span aria-hidden="true">{difficulty.emoji}</span> {difficulty.name}
+                </button>
+              )
+            })}
+          </div>
+          <p className="small" aria-live="polite">
+            {selectedDifficulty(state).blurb}
+          </p>
         </section>
 
         <section className="card stack stack--tight">

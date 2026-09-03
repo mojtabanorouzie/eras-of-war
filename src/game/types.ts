@@ -44,6 +44,32 @@ export interface Hero {
   counterBonus: number
 }
 
+export type DifficultyId = 'easy' | 'normal' | 'hard'
+
+/**
+ * How hard the arena pushes back.
+ *
+ * Every number is a multiplier on the ENEMY side only. The player's own
+ * damage, the weapon economy and the terrain lesson are never touched:
+ * difficulty changes how punishing a mistake is, not which weapon is right
+ * for the ground — the strategy layer stays identical on all three.
+ */
+export interface Difficulty {
+  id: DifficultyId
+  name: string
+  emoji: string
+  /** One line under the name in Settings. */
+  blurb: string
+  /** Multiplier on every enemy blow. */
+  enemyDamage: number
+  /** Multiplier on every enemy's health. */
+  enemyHealth: number
+  /** Multiplier on the wind-up telegraph. Above 1 gives more warning. */
+  windUp: number
+  /** Multiplier on enemy footspeed. */
+  enemySpeed: number
+}
+
 /** How a weapon fights. Terrains react to this more than to raw power. */
 export type WeaponType = 'melee' | 'ranged' | 'firearm' | 'sniper' | 'siege' | 'energy'
 
@@ -174,5 +200,7 @@ export interface GameState {
   clearedLevelIds: number[]
   campaignComplete: boolean
   muted: boolean
+  /** How hard the arena pushes back. A preference, like `muted`. */
+  difficulty: DifficultyId
   stats: GameStats
 }

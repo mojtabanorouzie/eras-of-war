@@ -8,11 +8,12 @@ import {
   currentBattleSetup,
   equippedWeapon,
   ownedWeapons,
+  selectedDifficulty,
   selectedHero,
   veterancyOf,
 } from './game/progression'
 import { useGame } from './game/useGame'
-import type { BattleOutcome, Hero, HeroId, Weapon } from './game/types'
+import type { BattleOutcome, Difficulty, Hero, HeroId, Weapon } from './game/types'
 import { Armory } from './screens/Armory'
 import { Battle } from './screens/Battle'
 import { BattlePreparation } from './screens/BattlePreparation'
@@ -48,6 +49,7 @@ interface PendingBattle {
   weapon: Weapon
   hero: Hero
   veterancy: number
+  difficulty: Difficulty
 }
 
 /**
@@ -65,7 +67,7 @@ interface ResolvedBattle {
 }
 
 export function App() {
-  const { state, equip, chooseHero, buy, resolveBattle, toggleMute, resetGame } = useGame()
+  const { state, equip, chooseHero, buy, resolveBattle, toggleMute, setDifficulty, resetGame } = useGame()
   const [screen, setScreen] = useState<ScreenId>('home')
   const [armoryOrigin, setArmoryOrigin] = useState<ArmoryOrigin>('home')
   const [pending, setPending] = useState<PendingBattle | null>(null)
@@ -92,6 +94,7 @@ export function App() {
       weapon: equippedWeapon(state),
       hero: selectedHero(state),
       veterancy: veterancyOf(state),
+      difficulty: selectedDifficulty(state),
     })
     setBattleKey((key) => key + 1)
     playCue('tap')
@@ -229,6 +232,7 @@ export function App() {
           playerWeapon={pending.weapon}
           hero={pending.hero}
           veterancy={pending.veterancy}
+          difficulty={pending.difficulty}
           onFinished={finishBattle}
         />
       ) : null}
@@ -267,6 +271,7 @@ export function App() {
         <Settings
           state={state}
           onToggleMute={toggleMute}
+          onSetDifficulty={setDifficulty}
           onReset={() => {
             resetGame()
             setResolved(null)
