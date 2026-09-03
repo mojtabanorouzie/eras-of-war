@@ -90,6 +90,42 @@ export const TOUCH_PITCH_SPEED = 1.7
 /** Radians per CSS pixel of mouse movement. */
 export const MOUSE_SENSITIVITY = 0.0027
 
+/**
+ * A gamepad turns faster than a thumb.
+ *
+ * A physical stick has a shorter throw than a thumb dragging across glass and
+ * springs back to centre on its own, so a player expects more turn per unit of
+ * deflection than the touch numbers give. Pitch stays proportionally slower
+ * than yaw for the same reason it does on touch.
+ */
+export const PAD_LOOK_SPEED = 3.4
+export const PAD_PITCH_SPEED = 2.2
+
+/**
+ * Radial dead zones for the two sticks.
+ *
+ * Radial, not per-axis: a per-axis dead zone leaves a cross-shaped hole where
+ * a stick pushed diagonally reports movement on only one axis, which reads as
+ * the commander refusing to walk diagonally. Aim gets the smaller zone because
+ * a little drift while aiming is less objectionable than a stick that ignores
+ * small, deliberate corrections.
+ */
+export const PAD_MOVE_DEAD_ZONE = 0.18
+export const PAD_LOOK_DEAD_ZONE = 0.12
+
+/**
+ * Response curve on the aim stick. Above 1 means small pushes turn slowly.
+ *
+ * This is the single thing that decides whether a gamepad feels good to aim
+ * with. A linear stick forces a choice between turning fast enough to spin
+ * around and being precise enough to hit anything; an exponential one gives
+ * fine control near centre and full speed at the edge, so it can do both.
+ */
+export const PAD_LOOK_CURVE = 2.2
+
+/** How far an analog trigger must be pulled before it counts as pressed. */
+export const PAD_TRIGGER_THRESHOLD = 0.4
+
 /* ------------------------------------------------------------------ *
  *  Fight shape
  * ------------------------------------------------------------------ */

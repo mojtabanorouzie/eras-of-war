@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ArenaInput } from '../game/arena/types'
 import { MOUSE_SENSITIVITY, TOUCH_LOOK_SPEED, TOUCH_PITCH_SPEED } from '../game/arena/world'
+import { createPadReader } from './gamepad'
+import { useReducedMotion } from './useReducedMotion'
 import type { ArenaDraw } from './useArena'
 
 /**
@@ -99,6 +101,36 @@ export function ArenaControls({ input, subscribe, surface, active, melee }: Aren
 
   const [touch, setTouch] = useState(false)
   const [aiming, setAiming] = useState(false)
+  const [pad, setPad] = useState(false)
+
+  // Polled every frame rather than listened to: the Gamepad API reports that a
+  // pad connected but never that a stick moved, so there is nothing to listen
+  // for. The reader is built once because it remembers which buttons were down.
+  const padReader = useRef(createPadReader())
+  const reducedMotion = useReducedMotion()
+  const haptics = useRef(!reducedMotion)
+  useEffect(() => {
+    // Rumble is a sensory effect like screen shake, so the same preference
+    // silences it. There is no separate media query for haptics.
+    haptics.current = !reducedMotion
+  }, [reducedMotion])
+
+  // Only used to decide whether the on-screen buttons are worth showing. The
+  // actual reading does not depend on these events firing.
+  useEffect(() => {
+    const update = () => {
+      const pads =
+        typeof navigator.getGamepads === 'function' ? navigator.getGamepads() : []
+      setPad(Array.from(pads).some((entry) => entry?.connected))
+    }
+    update()
+    window.addEventListener('gamepadconnected', update)
+    window.addEventListener('gamepaddisconnected', update)
+    return () => {
+      window.removeEventListener('gamepadconnected', update)
+      window.removeEventListener('gamepaddisconnected', update)
+    }
+  }, [])
 
   // Coarse pointers get the sticks; fine pointers get the mouse. Checked
   // rather than assumed, because a laptop with a touchscreen is both.
@@ -351,9 +383,14 @@ export function ArenaControls({ input, subscribe, surface, active, melee }: Aren
   useEffect(() => {
     let previous = 0
 
-    return subscribe((_state, now) => {
+    return subscribe((state, now) => {
       const dt = previous === 0 ? 0 : Math.min(0.1, (now - previous) / 1000)
       previous = now
+
+      // Read the pad even while inactive, so its edge-detector keeps up with
+      // buttons pressed during the drop-in and does not fire them all at once
+      // the moment control is handed over.
+      const gamepad = padReader.current.read(dt)
 
       const command = input.current
       if (!active) {
@@ -369,31 +406,69 @@ export function ArenaControls({ input, subscribe, surface, active, melee }: Aren
       const keyZ = k.forward - k.back
       const stick = move.current
 
-      // Whichever surface is being used more wins, so a laptop with a
-      // touchscreen can switch between them mid-fight without fighting itself.
-      const touchLength = stick ? Math.hypot(stick.x, stick.y) : 0
-      const keyLength = Math.hypot(keyX, keyZ)
-      if (touchLength >= keyLength) {
-        command.moveX = stick ? stick.x : 0
-        command.moveZ = stick ? stick.y : 0
-        command.sprint = touchLength > SPRINT_THRESHOLD
-      } else {
-        command.moveX = keyX
-        command.moveZ = keyZ
-        command.sprint = k.sprint
-      }
+      // Whichever surface is being pushed hardest wins, so a machine with a
+      // touchscreen, a keyboard and a pad all attached can switch between them
+      // mid-fight without any of the three fighting the other two. Comparing
+      // magnitudes rather than tracking a "current input device" means the
+      // handover needs no state and can never get stuck on the wrong one.
+      const surfaces = [
+        {
+          x: stick ? stick.x : 0,
+          z: stick ? stick.y : 0,
+          push: stick ? Math.hypot(stick.x, stick.y) : 0,
+          sprint: stick ? Math.hypot(stick.x, stick.y) > SPRINT_THRESHOLD : false,
+        },
+        { x: keyX, z: keyZ, push: Math.hypot(keyX, keyZ), sprint: k.sprint },
+        {
+          x: gamepad.moveX,
+          z: gamepad.moveZ,
+          push: gamepad.movePush,
+          // Either click the stick or simply run it to the edge.
+          sprint: gamepad.sprint || gamepad.movePush > SPRINT_THRESHOLD,
+        },
+      ]
+      const driving = surfaces.reduce((best, next) => (next.push > best.push ? next : best))
 
-      // The look stick is a rate, not a position: holding it deflected keeps
+      command.moveX = driving.x
+      command.moveZ = driving.z
+      command.sprint = driving.sprint
+
+      // Both look sticks are rates, not positions: held over, they keep
       // turning. Scaling by this frame's own dt is what keeps the turn speed
       // identical on a 60Hz phone and a 120Hz one.
+      //
+      // The sign is subtracted because a stick pushed up reports positive here
+      // and the simulation subtracts `lookY` from pitch — so adding it would
+      // make pushing up look *down*, inverted against both the mouse and every
+      // other stick in the game.
       const aim = look.current
       if (aim) {
         command.lookX += aim.x * TOUCH_LOOK_SPEED * dt
-        command.lookY += aim.y * TOUCH_PITCH_SPEED * dt
+        command.lookY -= aim.y * TOUCH_PITCH_SPEED * dt
       }
+      // Already scaled and signed by the reader.
+      command.lookX += gamepad.lookX
+      command.lookY += gamepad.lookY
 
-      command.fire = held.current.fire || k.fire || now < held.current.tapFireUntil
-      command.ads = held.current.ads || k.ads
+      command.fire =
+        held.current.fire || k.fire || gamepad.fire || now < held.current.tapFireUntil
+      command.ads = held.current.ads || k.ads || gamepad.ads
+
+      // Edges are latched rather than assigned: the simulation clears these
+      // once it acts, and overwriting them with `false` here would swallow a
+      // button pressed on a frame the fight had already consumed.
+      if (gamepad.reload) command.reload = true
+      if (gamepad.dodge) command.dodge = true
+
+      if (gamepad.connected && haptics.current) {
+        for (const event of state.events) {
+          // Taking a hit is the one thing worth a strong buzz — it is the
+          // feedback a third-person camera is worst at giving you, because
+          // whatever hit you is very often off screen.
+          if (event.kind === 'hurt') padReader.current.rumble(0.75, 170)
+          else if (event.kind === 'kill') padReader.current.rumble(0.35, 90)
+        }
+      }
     })
   }, [subscribe, input, active])
 
@@ -432,7 +507,10 @@ export function ArenaControls({ input, subscribe, surface, active, melee }: Aren
         </>
       ) : null}
 
-      <div className="arena-buttons">
+      {/* A connected pad has every one of these under a thumb already, so the
+          on-screen set stops being a control and starts being clutter over the
+          arena. It comes straight back if the pad is unplugged. */}
+      <div className={`arena-buttons${pad ? ' is-hidden' : ''}`}>
         {melee ? null : (
           <button
             type="button"

@@ -441,6 +441,12 @@
   align-items: end;
 }
 
+/* Hidden rather than unmounted, so unplugging a pad brings the buttons back
+   without React rebuilding the control layer mid-fight. */
+.arena-buttons.is-hidden {
+  display: none;
+}
+
 .abtn {
   display: grid;
   place-items: center;

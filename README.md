@@ -56,17 +56,22 @@ and the ground under its feet.
 
 ### Controls
 
-| | Touch | Keyboard & mouse |
-| --- | --- | --- |
-| Move | left stick (push to the edge to sprint) | `W` `A` `S` `D`, `Shift` to sprint |
-| Aim | right stick | mouse, via pointer lock |
-| Fire | tap the aim stick, or hold `⦿` | left click |
-| Aim down sights | `◎`, a toggle | right click |
-| Reload | `⟳` | `R` |
-| Dodge roll | `⤢` | `Space` |
+| | Touch | Keyboard & mouse | Gamepad |
+| --- | --- | --- | --- |
+| Move | left stick (push to the edge to sprint) | `W` `A` `S` `D`, `Shift` to sprint | left stick |
+| Aim | right stick | mouse, via pointer lock | right stick |
+| Fire | tap the aim stick, or hold `⦿` | left click | right trigger, or `RB` |
+| Aim down sights | `◎`, a toggle | right click | left trigger, or `LB` |
+| Reload | `⟳` | `R` | `X` / Square |
+| Dodge roll | `⤢` | `Space` | `A` / Cross |
+| Sprint | push the left stick to the edge | `Shift` | click the left stick, or push it to the edge |
 
-Touch is the platform the layout is designed around; the keyboard path exists so the game is
-playable and testable in a desktop browser.
+Touch is the platform the layout is designed around. All three surfaces are live at once and
+fold into a single `ArenaInput` — whichever one is being pushed hardest drives the commander,
+so a machine with a touchscreen, a keyboard and a pad attached never has to be told which to
+listen to. A pad is detected on its own; plug one in and the on-screen buttons get out of the
+way, and unplug it and they come back. Taking a hit rumbles it, which is worth more in a
+third-person shooter than it sounds — the thing that killed you is usually off screen.
 
 The whole game is one lesson: **the right weapon for the ground beats the expensive weapon.**
 That is not a slogan, it is in the numbers:
@@ -194,8 +199,8 @@ Not implemented, and deliberately so — the MVP is meant to stay small:
 
 - More weapons and more eras
 - Additional terrains and weather effects
-- Gamepad support — the input layer already funnels every surface into one `ArenaInput`
 - Verticality: ramps and rooftops, which the ruined city is asking for
+- Remappable controls and a look-sensitivity slider
 - Character and army customisation
 - Multiplayer or asynchronous duels
 - An online leaderboard
