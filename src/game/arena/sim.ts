@@ -1417,6 +1417,21 @@ function finish(state: ArenaState, timedOut: boolean): void {
  *  The step
  * ------------------------------------------------------------------ */
 
+/**
+ * Strikes the colours.
+ *
+ * Retreat is a defeat, deliberately: the army breaks and the fight is scored
+ * exactly as if it had been broken in the field — same salvage, same report,
+ * no new rules. If leaving cost nothing, every fight would be free to abandon
+ * the moment it turned, and a loss would stop meaning anything.
+ */
+export function resignArena(state: ArenaState): void {
+  if (state.phase === 'over') return
+  state.player.alive = false
+  state.player.health = 0
+  finish(state, false)
+}
+
 export function enemiesLeft(state: ArenaState): number {
   let count = 0
   for (const enemy of state.enemies) if (enemy.alive) count += 1

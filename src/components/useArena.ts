@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { advanceArena, createArena } from '../game/arena/sim'
+import { advanceArena, createArena, resignArena } from '../game/arena/sim'
 import { createArenaInput } from '../game/arena/types'
 import type { ArenaInput, ArenaPhase, ArenaResult, ArenaState } from '../game/arena/types'
 import type { ArenaOptions } from '../game/arena/sim'
@@ -33,6 +33,11 @@ export interface ArenaController {
   /** What the player is asking for. The control surfaces write it. */
   input: React.RefObject<ArenaInput>
   subscribe: (draw: ArenaDraw) => () => void
+  /** True while the fight is held. The clock, the enemies and every subscriber freeze. */
+  paused: boolean
+  togglePause: () => void
+  /** Strikes the colours: ends the fight as a defeat, through the sim's own rules. */
+  resign: () => void
 }
 
 export function useArena(options: ArenaOptions): ArenaController {
@@ -48,6 +53,11 @@ export function useArena(options: ArenaOptions): ArenaController {
   const [phase, setPhase] = useState<ArenaPhase>(state.phase)
   const [result, setResult] = useState<ArenaResult | null>(null)
 
+  // Both a state and a ref: the button needs a render, the sixty-a-second tick
+  // needs a read that costs nothing and is never a frame stale.
+  const [paused, setPaused] = useState(false)
+  const pausedRef = useRef(false)
+
   useEffect(() => {
     let frame = 0
     let previous = 0
@@ -58,8 +68,15 @@ export function useArena(options: ArenaOptions): ArenaController {
       const dt = previous === 0 ? 0 : (now - previous) / 1000
       previous = now
 
-      advanceArena(state, dt, inputRef.current)
-      for (const draw of subscribers.current) draw(state, now)
+      // A held fight is genuinely held: the sim does not advance, so the clock
+      // and every cooldown stop for free, and the subscribers are not called,
+      // so the last drawn frame simply stays on screen under the overlay.
+      // `previous` keeps tracking, so resuming costs one ordinary frame rather
+      // than the whole paused span (which the sim would clamp anyway).
+      if (!pausedRef.current) {
+        advanceArena(state, dt, inputRef.current)
+        for (const draw of subscribers.current) draw(state, now)
+      }
 
       if (state.phase !== lastPhase) {
         lastPhase = state.phase
@@ -74,6 +91,24 @@ export function useArena(options: ArenaOptions): ArenaController {
     return () => window.cancelAnimationFrame(frame)
   }, [state])
 
+  const togglePause = useCallback(() => {
+    if (state.phase === 'over') return
+    setPaused((held) => {
+      pausedRef.current = !held
+      return !held
+    })
+  }, [state])
+
+  const resign = useCallback(() => {
+    resignArena(state)
+    pausedRef.current = false
+    setPaused(false)
+    // Pushed into React immediately rather than waiting for the next tick, so
+    // the defeat flow starts even on a frame the loop happens to be skipping.
+    setPhase(state.phase)
+    setResult(state.result)
+  }, [state])
+
   const subscribe = useCallback((draw: ArenaDraw) => {
     const set = subscribers.current
     set.add(draw)
@@ -82,5 +117,5 @@ export function useArena(options: ArenaOptions): ArenaController {
     }
   }, [])
 
-  return { phase, result, state, input: inputRef, subscribe }
+  return { phase, result, state, input: inputRef, subscribe, paused, togglePause, resign }
 }

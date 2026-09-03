@@ -95,11 +95,15 @@ interface ArenaControlsProps {
   subscribe: (draw: ArenaDraw) => () => void
   /** False during the drop-in and after the fight, so stray taps do nothing. */
   active: boolean
+  /** True while the fight is held. Outputs are zeroed; only Start still speaks. */
+  paused: boolean
+  /** Fired on the pad's Start button, both to hold the fight and to resume it. */
+  onPause: () => void
   /** A swung weapon has no sights, so the aim button is not offered. */
   melee: boolean
 }
 
-export function ArenaControls({ input, subscribe, active, melee }: ArenaControlsProps) {
+export function ArenaControls({ input, subscribe, active, paused, onPause, melee }: ArenaControlsProps) {
   const layerRef = useRef<HTMLDivElement>(null)
   const moveBaseRef = useRef<HTMLDivElement>(null)
   const moveKnobRef = useRef<HTMLDivElement>(null)
@@ -441,8 +445,12 @@ export function ArenaControls({ input, subscribe, active, melee }: ArenaControls
       // the moment control is handed over.
       const gamepad = padReader.current.read(dt)
 
+      // Start toggles the hold in both directions, which is why it is read
+      // before the paused gate below would silence everything else.
+      if (gamepad.pause) onPause()
+
       const command = input.current
-      if (!active) {
+      if (!active || paused) {
         command.moveX = 0
         command.moveZ = 0
         command.fire = false
@@ -527,7 +535,7 @@ export function ArenaControls({ input, subscribe, active, melee }: ArenaControls
         }
       }
     })
-  }, [subscribe, input, active])
+  }, [subscribe, input, active, paused, onPause])
 
   const press = (control: 'fire') => (event: React.PointerEvent<HTMLButtonElement>) => {
     event.preventDefault()

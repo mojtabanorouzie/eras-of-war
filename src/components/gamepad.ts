@@ -44,6 +44,8 @@ const BUTTON = {
   fire: 7,
   /** Left stick click. */
   sprint: 10,
+  /** Start / Options / Menu — the one button every pad reserves for pausing. */
+  pause: 9,
 } as const
 
 /** Axis indices under the standard mapping. */
@@ -67,6 +69,8 @@ export interface PadReading {
   reload: boolean
   /** True only on the frame the button went down. */
   dodge: boolean
+  /** True only on the frame Start went down. */
+  pause: boolean
   /** How far from centre the movement stick is, 0..1. Drives the sprint gate. */
   movePush: number
 }
@@ -83,6 +87,7 @@ function emptyReading(): PadReading {
     sprint: false,
     reload: false,
     dodge: false,
+    pause: false,
     movePush: 0,
   }
 }
@@ -203,6 +208,7 @@ export function createPadReader(): PadReader {
         sprint: pressed(pad, BUTTON.sprint),
         reload: edge(pad, BUTTON.reload),
         dodge: edge(pad, BUTTON.dodge),
+        pause: edge(pad, BUTTON.pause),
         movePush: move.push,
       }
     },

@@ -58,7 +58,7 @@ export function Battle({ setup, playerWeapon, hero, veterancy, difficulty, onFin
       [gun, hero, enemy, terrain, level, difficulty],
     ),
   )
-  const { phase, result, subscribe, input } = arena
+  const { phase, result, subscribe, input, paused, togglePause, resign } = arena
 
   const [webglFailed, setWebglFailed] = useState(false)
   const showCanvas = !webglFailed && isWebGLAvailable()
@@ -148,6 +148,28 @@ export function Battle({ setup, playerWeapon, hero, veterancy, difficulty, onFin
     })
   }, [playerWeapon, enemy, terrain, veterancy, arena.state.totalEnemies, onFinished])
 
+  // Holding the fight has to free the mouse too, or a desktop player could
+  // not reach the very buttons the overlay offers them.
+  useEffect(() => {
+    if (paused) document.exitPointerLock?.()
+  }, [paused])
+
+  // Escape is what a desktop player will try first; P is for the second try.
+  // While pointer lock is held the browser spends the first Escape on
+  // releasing it, so pausing takes two presses there — which is fine, because
+  // the first one already gave them their cursor back.
+  useEffect(() => {
+    if (phase === 'over') return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' || event.key === 'p' || event.key === 'P') {
+        event.preventDefault()
+        togglePause()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [phase, togglePause])
+
   const finished = phase === 'over'
 
   return (
@@ -185,8 +207,24 @@ export function Battle({ setup, playerWeapon, hero, veterancy, difficulty, onFin
             input={input}
             subscribe={subscribe}
             active={phase === 'fighting'}
+            paused={paused}
+            onPause={togglePause}
             melee={gun.melee}
           />
+
+          {/* Above the control layer, so the tap is a tap and never a stick.
+              It stays above the pause overlay too, flipping into a resume
+              button rather than being buried by the sheet it opened. */}
+          {finished ? null : (
+            <button
+              type="button"
+              className="arena-pause-btn"
+              onClick={togglePause}
+              aria-label={paused ? 'ادامهٔ نبرد' : 'توقف نبرد'}
+            >
+              {paused ? '▶' : '⏸'}
+            </button>
+          )}
         </>
       ) : null}
 
@@ -204,6 +242,23 @@ export function Battle({ setup, playerWeapon, hero, veterancy, difficulty, onFin
               {gun.emoji} {gun.name} · {faNumber(arena.state.totalEnemies)} دشمن در{' '}
               {faNumber(arena.state.waves.length)} موج
             </p>
+          </div>
+        </div>
+      ) : null}
+
+      {paused && !finished ? (
+        <div className="arena-notice">
+          <div className="arena-notice__card stack">
+            <p className="arena-notice__title">⏸ توقف</p>
+            <p className="arena-notice__body">
+              میدان همان‌جا که رهایش کردی می‌ماند — ساعت، خشاب و دشمن‌ها همه ایستاده‌اند.
+            </p>
+            <button type="button" className="btn btn--primary btn--lg btn--block" onClick={togglePause}>
+              ▶ ادامهٔ نبرد
+            </button>
+            <button type="button" className="btn btn--ghost btn--block" onClick={resign}>
+              🏳️ عقب‌نشینی — باخت حساب می‌شود
+            </button>
           </div>
         </div>
       ) : null}
