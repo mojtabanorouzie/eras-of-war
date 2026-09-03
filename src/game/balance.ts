@@ -8,6 +8,16 @@
 /** Both armies start from the same footing; weapons and ground decide the rest. */
 export const ARMY_BASE_POWER = 100
 
+/**
+ * A fighter at full health.
+ *
+ * Damage on both sides is scaled against this, so it is the unit the whole
+ * arena is measured in: `loadout.ts` spends a weapon's tuned power as a
+ * fraction of it per second, and `squad.ts` sizes the enemy force in multiples
+ * of it. Changing it silently retunes every battle in the campaign.
+ */
+export const MAX_HEALTH = 100
+
 /** Bringing a weapon to the terrain it was designed for is the biggest single swing. */
 export const MATCH_BONUS = 25
 

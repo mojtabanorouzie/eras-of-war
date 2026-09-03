@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { playCue } from './game/audio'
-import { reportDuel } from './game/combat'
-import type { DuelResult } from './game/duel'
+import { reportArena } from './game/arena/report'
+import type { ArenaResult } from './game/arena/types'
 import { payoutFor } from './game/economy'
 import type { BattleSetup } from './game/progression'
 import {
@@ -100,12 +100,12 @@ export function App() {
 
   /** The fight decides the outcome; this only writes it down. */
   const finishBattle = useCallback(
-    (result: DuelResult) => {
+    (result: ArenaResult) => {
       if (!pending) {
         setScreen('home')
         return
       }
-      const outcome = reportDuel(
+      const outcome = reportArena(
         pending.weapon,
         pending.setup.terrain,
         pending.veterancy,

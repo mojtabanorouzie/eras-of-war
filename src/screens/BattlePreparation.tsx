@@ -1,7 +1,7 @@
 import { BonusChips } from '../components/BonusChips'
 import { CoinBadge } from '../components/CoinBadge'
 import { TerrainBanner } from '../components/TerrainBanner'
-import { readDuelOdds } from '../game/combat'
+import { readArenaOdds } from '../game/arena/report'
 import { TopBar } from '../components/TopBar'
 import { TOTAL_LEVELS } from '../data/levels'
 import { ARMY_BASE_POWER } from '../game/balance'
@@ -40,7 +40,7 @@ export function BattlePreparation({
   const fit = evaluateTerrainFit(weapon, terrain)
   const playerPower = projectPlayerPower(weapon, terrain, veterancy)
   const enemyPower = projectEnemyPower(enemy.weapon, enemy.terrainEdge)
-  const odds = readDuelOdds(playerPower - enemyPower)
+  const odds = readArenaOdds(playerPower - enemyPower)
   const alreadyCleared = state.clearedLevelIds.includes(level.id)
 
   return (

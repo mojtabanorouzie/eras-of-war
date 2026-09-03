@@ -1,36 +1,33 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DuelStage } from '../components/DuelStage'
-import { terrainVars } from '../components/theme'
-import { useDuel } from '../components/useDuel'
+import { ArenaControls } from '../components/ArenaControls'
+import { ArenaHud } from '../components/ArenaHud'
+import { useArena } from '../components/useArena'
 import { useReducedMotion } from '../components/useReducedMotion'
 import { isWebGLAvailable } from '../components/webglSupport'
+import { gunFor } from '../game/arena/loadout'
+import type { ArenaResult } from '../game/arena/types'
 import { playCue } from '../game/audio'
-import { enemyCombatStats, playerCombatStats } from '../game/combat'
-import type { DuelResult, DuelState } from '../game/duel'
-import { inReach } from '../game/duel'
+import { simulateBattle } from '../game/battleEngine'
 import { faNumber } from '../game/format'
 import type { BattleSetup } from '../game/progression'
 import type { Hero, Weapon } from '../game/types'
 
 /**
+ * The battlefield.
+ *
  * Three.js lands in its own chunk and is fetched the first time a battle
- * starts, so the home screen never downloads a renderer it will not use. Until
- * it arrives — and on every device without WebGL — `DuelStage` runs the very
- * same fight in the DOM.
+ * starts, so the home screen never downloads a renderer it will not use.
+ *
+ * This screen deliberately breaks the layout every other screen keeps. The
+ * campaign is a column of cards in a 520px shell; the arena takes the whole
+ * viewport and puts its own HUD on top. A shooter that had to share the screen
+ * with a top bar would be a worse shooter, and the player is never in here for
+ * more than about ninety seconds.
  */
-const BattleCanvas = lazy(() => import('../components/BattleCanvas'))
+const ArenaCanvas = lazy(() => import('../components/ArenaCanvas'))
 
 /** How long the finish is held on screen before the report takes over. */
-const OUTRO_MS = 1700
-
-/** Floating damage numbers reuse this many nodes, round robin. */
-const DAMAGE_SLOTS = 10
-
-/** Matches WORLD_MIN_WIDTH, so a number pops where the blow landed. */
-const STAGE_SPAN = 22
-
-/** Below this fraction of health, the screen starts warning you. */
-const DANGER = 0.3
+const OUTRO_MS = 1900
 
 interface BattleProps {
   setup: BattleSetup
@@ -39,167 +36,65 @@ interface BattleProps {
   hero: Hero
   /** Veterancy earned so far; the same value the engine is given. */
   veterancy: number
-  onFinished: (result: DuelResult) => void
+  onFinished: (result: ArenaResult) => void
 }
 
 export function Battle({ setup, playerWeapon, hero, veterancy, onFinished }: BattleProps) {
-  const { terrain, enemy } = setup
+  const { terrain, enemy, level } = setup
   const reducedMotion = useReducedMotion()
 
-  const stats = useMemo(
-    () => ({
-      player: playerCombatStats(playerWeapon, terrain, veterancy, hero),
-      enemy: enemyCombatStats(enemy, terrain),
-    }),
-    [playerWeapon, terrain, veterancy, hero, enemy],
+  // The kit is frozen the moment the battle begins, so nothing bought or
+  // equipped afterwards could reach into the fight in progress.
+  const gun = useMemo(
+    () => gunFor(playerWeapon, terrain, hero, veterancy),
+    [playerWeapon, terrain, hero, veterancy],
   )
 
-  const duel = useDuel(stats.player, stats.enemy)
-  const { phase, result, subscribe, attack, dodge } = duel
+  const arena = useArena(
+    useMemo(() => ({ gun, hero, enemy, terrain, level }), [gun, hero, enemy, terrain, level]),
+  )
+  const { phase, result, subscribe, input } = arena
 
   const [webglFailed, setWebglFailed] = useState(false)
-  const [canvasLive, setCanvasLive] = useState(false)
   const showCanvas = !webglFailed && isWebGLAvailable()
 
-  const handleCanvasReady = useCallback(() => setCanvasLive(true), [])
-  const handleCanvasFailure = useCallback(() => {
-    setWebglFailed(true)
-    setCanvasLive(false)
-  }, [])
+  const fieldRef = useRef<HTMLDivElement>(null)
+  const surfaceRef = useRef<HTMLDivElement>(null)
+  const briefingRef = useRef<HTMLDivElement>(null)
 
-  // Everything below updates sixty times a second, so it is written straight to
-  // the DOM from the fight loop rather than through React state.
-  const field = useRef<HTMLDivElement>(null)
-  const playerBar = useRef<HTMLElement>(null)
-  const enemyBar = useRef<HTMLElement>(null)
-  const playerGhost = useRef<HTMLElement>(null)
-  const enemyGhost = useRef<HTMLElement>(null)
-  const attackButton = useRef<HTMLButtonElement>(null)
-  const dodgeButton = useRef<HTMLButtonElement>(null)
-  const cue = useRef<HTMLParagraphElement>(null)
-  const damageLayer = useRef<HTMLDivElement>(null)
-  const comboLabel = useRef<HTMLDivElement>(null)
-  const perfectFlash = useRef<HTMLDivElement>(null)
+  const handleCanvasReady = useCallback(() => undefined, [])
+  const handleCanvasFailure = useCallback(() => setWebglFailed(true), [])
 
-  // Holding a control keeps firing it, which is what an action game should do.
-  const held = useRef({ attack: false, dodge: false })
   const motion = useRef(reducedMotion)
   useEffect(() => {
     motion.current = reducedMotion
   }, [reducedMotion])
 
+  // Screen shake rides the field wrapper rather than the camera, so the HUD
+  // above it stays perfectly still and legible while the world lurches.
   useEffect(() => {
-    let wasInReach: boolean | null = null
-    let shownCombo = 0
-    let previousNow = 0
-    // Ghost bars trail the real ones, so you can see what a blow just cost.
-    let playerGhostAt = 1
-    let enemyGhostAt = 1
-    let slot = 0
+    let shaking = false
 
-    const slots = damageLayer.current
-      ? (Array.from(damageLayer.current.children) as HTMLElement[])
-      : []
+    return subscribe((state) => {
+      const box = fieldRef.current
+      if (!box) return
 
-    const pop = (state: DuelState) => {
-      for (const event of state.events) {
-        const node = slots[slot % Math.max(1, slots.length)]
-        slot += 1
-        if (!node) continue
-
-        node.textContent = faNumber(Math.max(1, Math.round(event.damage)))
-        node.className = `dmg${event.counter ? ' dmg--counter' : ''}${event.target === 'player' ? ' dmg--taken' : ''}`
-        node.style.left = `${((event.x / STAGE_SPAN + 0.5) * 100).toFixed(1)}%`
-        // Stagger the rise so simultaneous hits do not stack on one another.
-        node.style.top = `${28 + (event.id % 3) * 8}%`
-        // Restarting a CSS animation needs the reflow between the two writes.
-        node.style.animation = 'none'
-        void node.offsetWidth
-        node.style.animation = ''
-
-        playCue(event.target === 'player' ? 'hurt' : 'hit')
-      }
-    }
-
-    return subscribe((state, now) => {
-      const dt = previousNow === 0 ? 0 : Math.min(0.1, (now - previousNow) / 1000)
-      previousNow = now
-
-      if (held.current.attack) attack()
-      if (held.current.dodge) dodge()
-
-      const playerAt = state.player.health / state.stats.player.maxHealth
-      const enemyAt = state.enemy.health / state.stats.enemy.maxHealth
-
-      const scale = (bar: HTMLElement | null, fraction: number) => {
-        if (bar) bar.style.transform = `scaleX(${Math.max(0, fraction).toFixed(3)})`
-      }
-      scale(playerBar.current, playerAt)
-      scale(enemyBar.current, enemyAt)
-
-      // The ghost catches up slowly, and only ever downward.
-      playerGhostAt = playerAt > playerGhostAt ? playerAt : playerGhostAt + (playerAt - playerGhostAt) * Math.min(1, dt * 2.6)
-      enemyGhostAt = enemyAt > enemyGhostAt ? enemyAt : enemyGhostAt + (enemyAt - enemyGhostAt) * Math.min(1, dt * 2.6)
-      scale(playerGhost.current, playerGhostAt)
-      scale(enemyGhost.current, enemyGhostAt)
-
-      const ready = (button: HTMLButtonElement | null, remaining: number, total: number) => {
-        if (!button) return
-        button.style.setProperty('--charge', (total <= 0 ? 1 : 1 - Math.min(1, remaining / total)).toFixed(3))
-      }
-      ready(attackButton.current, state.player.attackCooldown, state.stats.player.cycle)
-      ready(dodgeButton.current, state.player.dodgeCooldown, state.stats.player.dodgeCooldown)
-
-      const box = field.current
-      if (box) {
-        // Shake the whole arena, not the camera inside it, so the fallback
-        // shakes too and nothing drifts out of register with the HUD.
-        const shake = motion.current ? 0 : state.shake
-        box.style.transform =
-          shake > 0.01
-            ? `translate(${((Math.random() - 0.5) * shake * 9).toFixed(1)}px, ${((Math.random() - 0.5) * shake * 6).toFixed(1)}px)`
-            : ''
-        box.classList.toggle('is-slowmo', state.slowMotion > 0 && !motion.current)
-        box.classList.toggle('is-danger', playerAt > 0 && playerAt < DANGER)
+      const shake = motion.current ? 0 : state.shake
+      if (shake > 0.01) {
+        shaking = true
+        box.style.transform = `translate(${((Math.random() - 0.5) * shake * 10).toFixed(1)}px, ${((Math.random() - 0.5) * shake * 7).toFixed(1)}px)`
+      } else if (shaking) {
+        shaking = false
+        box.style.transform = ''
       }
 
-      pop(state)
-
-      if (state.perfectDodge) {
-        playCue('perfect')
-        const flash = perfectFlash.current
-        if (flash) {
-          flash.style.animation = 'none'
-          void flash.offsetWidth
-          flash.style.animation = ''
-        }
-      }
-
-      if (state.player.combo !== shownCombo) {
-        shownCombo = state.player.combo
-        const label = comboLabel.current
-        if (label) {
-          label.textContent = shownCombo >= 3 ? `×${faNumber(shownCombo)}` : ''
-          label.classList.toggle('is-on', shownCombo >= 3)
-          if (shownCombo >= 3) {
-            label.style.animation = 'none'
-            void label.offsetWidth
-            label.style.animation = ''
-          }
-        }
-      }
-
-      if (state.phase === 'fighting') {
-        const reachable = inReach(state)
-        if (reachable !== wasInReach) {
-          wasInReach = reachable
-          if (cue.current) {
-            cue.current.textContent = reachable ? '🎯 در برد — بزن!' : 'هنوز دور است…'
-          }
-        }
+      const brief = briefingRef.current
+      if (brief) {
+        const showing = state.phase === 'briefing'
+        brief.style.opacity = showing ? '1' : '0'
       }
     })
-  }, [subscribe, attack, dodge])
+  }, [subscribe])
 
   useEffect(() => {
     if (phase === 'fighting') playCue('battle')
@@ -212,88 +107,54 @@ export function Battle({ setup, playerWeapon, hero, veterancy, onFinished }: Bat
     return () => window.clearTimeout(timer)
   }, [phase, result, onFinished])
 
-  // Desktop players get the keyboard; the buttons are for thumbs.
-  useEffect(() => {
-    const isAttack = (key: string) => key === ' ' || key === 'Enter'
-    const isDodge = (key: string) => key === 'Shift' || key === 'ArrowDown' || key === 'ArrowLeft'
+  /**
+   * The way out for a device that cannot give us a WebGL context.
+   *
+   * There is no honest DOM version of a 3D arena the way there was of a
+   * two-fighter duel, so rather than fake one, the battle falls back to the
+   * campaign's original dice roll — the same `simulateBattle` the strategy
+   * game shipped with. The player is told exactly that, and the run continues
+   * instead of dead-ending on a device that cannot render the field.
+   */
+  const resolveOnPaper = useCallback(() => {
+    playCue('tap')
+    const outcome = simulateBattle({
+      playerWeapon,
+      enemyWeapon: enemy.weapon,
+      terrain,
+      playerBonus: veterancy,
+      enemyBonus: enemy.terrainEdge,
+    })
+    const won = outcome.winner === 'player'
+    const total = arena.state.totalEnemies
 
-    const down = (event: KeyboardEvent) => {
-      if (isAttack(event.key)) {
-        event.preventDefault()
-        held.current.attack = true
-      } else if (isDodge(event.key)) {
-        event.preventDefault()
-        held.current.dodge = true
-      }
-    }
-    const up = (event: KeyboardEvent) => {
-      if (isAttack(event.key)) held.current.attack = false
-      else if (isDodge(event.key)) held.current.dodge = false
-    }
+    onFinished({
+      winner: outcome.winner,
+      playerHealth: won ? 50 : 0,
+      enemyForceLeft: won ? 0 : 50,
+      duration: 0,
+      kills: won ? total : Math.floor(total / 2),
+      totalEnemies: total,
+      shotsFired: 0,
+      shotsHit: 0,
+      accuracy: 0,
+      bestStreak: 0,
+      timedOut: false,
+      resolvedOnPaper: true,
+    })
+  }, [playerWeapon, enemy, terrain, veterancy, arena.state.totalEnemies, onFinished])
 
-    window.addEventListener('keydown', down)
-    window.addEventListener('keyup', up)
-    return () => {
-      window.removeEventListener('keydown', down)
-      window.removeEventListener('keyup', up)
-    }
-  }, [])
-
-  const press = useCallback(
-    (control: 'attack' | 'dodge') => (event: React.PointerEvent<HTMLButtonElement>) => {
-      event.preventDefault()
-      held.current[control] = true
-    },
-    [],
-  )
-
-  const release = useCallback(
-    (control: 'attack' | 'dodge') => () => {
-      held.current[control] = false
-    },
-    [],
-  )
-
-  const status =
-    phase === 'intro'
-      ? 'سپاه‌ها وارد میدان می‌شوند…'
-      : phase === 'over'
-        ? result?.winner === 'player'
-          ? '🏆 خطشان شکست!'
-          : '💀 خط تو شکست!'
-        : null
+  const finished = phase === 'over'
 
   return (
-    <div className="screen">
-      <div className="shell battle">
-        <div className="hp">
-          <div className="hp__side">
-            <span className="hp__name">سپاه تو</span>
-            <div className="hp__track">
-              <i ref={playerGhost} className="hp__ghost" />
-              <i ref={playerBar} className="hp__fill hp__fill--player" />
-            </div>
-          </div>
-          <div className="hp__side hp__side--enemy">
-            <span className="hp__name">{enemy.name}</span>
-            <div className="hp__track">
-              <i ref={enemyGhost} className="hp__ghost hp__ghost--enemy" />
-              <i ref={enemyBar} className="hp__fill hp__fill--enemy" />
-            </div>
-          </div>
-        </div>
-
-        <div ref={field} className="battle__field" style={terrainVars(terrain)}>
+    <div className="arena">
+      <div ref={fieldRef} className="arena__field">
+        <div ref={surfaceRef} className="arena__stage">
           {showCanvas ? (
-            // No Suspense fallback: the DOM field below is already running the
-            // fight, so a slow chunk costs nothing. It steps aside once the
-            // canvas has painted its first frame.
             <Suspense fallback={null}>
-              <BattleCanvas
+              <ArenaCanvas
                 terrain={terrain}
-                playerEmoji={hero.emoji}
-                playerWeaponEmoji={playerWeapon.emoji}
-                enemyEmoji={enemy.emoji}
+                heroEmoji={hero.emoji}
                 reducedMotion={reducedMotion}
                 subscribe={subscribe}
                 onReady={handleCanvasReady}
@@ -301,65 +162,77 @@ export function Battle({ setup, playerWeapon, hero, veterancy, onFinished }: Bat
               />
             </Suspense>
           ) : null}
-
-          {canvasLive ? null : (
-            <DuelStage
-              playerEmoji={hero.emoji}
-              playerWeaponEmoji={playerWeapon.emoji}
-              enemyEmoji={enemy.emoji}
-              subscribe={subscribe}
-            />
-          )}
-
-          {/* Persian numerals, in the DOM where they belong. */}
-          <div ref={damageLayer} className="dmg-layer" aria-hidden="true">
-            {Array.from({ length: DAMAGE_SLOTS }, (_, index) => (
-              <span key={index} className="dmg" />
-            ))}
-          </div>
-
-          <div ref={comboLabel} className="combo" aria-hidden="true" />
-          <div ref={perfectFlash} className="perfect" aria-hidden="true">
-            عالی!
-          </div>
-          <div className="danger-edge" aria-hidden="true" />
-        </div>
-
-        <p ref={cue} className="battle__status" aria-live="polite">
-          {status}
-        </p>
-
-        <div className="controls">
-          <button
-            ref={attackButton}
-            type="button"
-            className="ctrl ctrl--attack"
-            onPointerDown={press('attack')}
-            onPointerUp={release('attack')}
-            onPointerCancel={release('attack')}
-            onPointerLeave={release('attack')}
-          >
-            <span className="ctrl__icon" aria-hidden="true">
-              {playerWeapon.emoji}
-            </span>
-            <span className="ctrl__label">حمله</span>
-          </button>
-          <button
-            ref={dodgeButton}
-            type="button"
-            className="ctrl ctrl--dodge"
-            onPointerDown={press('dodge')}
-            onPointerUp={release('dodge')}
-            onPointerCancel={release('dodge')}
-            onPointerLeave={release('dodge')}
-          >
-            <span className="ctrl__icon" aria-hidden="true">
-              💨
-            </span>
-            <span className="ctrl__label">جاخالی</span>
-          </button>
         </div>
       </div>
+
+      {showCanvas ? (
+        <>
+          <ArenaHud
+            subscribe={subscribe}
+            enemyName={enemy.name}
+            magazine={gun.magazine}
+            timeLimit={arena.state.timeLimit}
+            waves={arena.state.waves.length}
+            melee={gun.melee}
+            weaponEmoji={gun.emoji}
+            reducedMotion={reducedMotion}
+          />
+          <ArenaControls
+            input={input}
+            subscribe={subscribe}
+            surface={surfaceRef}
+            active={phase === 'fighting'}
+            melee={gun.melee}
+          />
+        </>
+      ) : null}
+
+      {/* The drop-in. Persian, in the DOM, over the canvas — never inside it. */}
+      {showCanvas ? (
+        <div ref={briefingRef} className="arena-notice arena-notice--brief">
+          <div className="arena-notice__card">
+            <p className="arena-notice__title">
+              {terrain.emoji} {level.name}
+            </p>
+            <p className="arena-notice__body">
+              {enemy.emoji} {enemy.name} — «{enemy.taunt}»
+            </p>
+            <p className="arena-notice__body">
+              {gun.emoji} {gun.name} · {faNumber(arena.state.totalEnemies)} دشمن در{' '}
+              {faNumber(arena.state.waves.length)} موج
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {finished && result ? (
+        <div className="arena-notice">
+          <div className="arena-notice__card">
+            <p className="arena-notice__title">
+              {result.winner === 'player' ? '🏆 میدان مالِ توست!' : '💀 میدان را باختی'}
+            </p>
+            <p className="arena-notice__body">
+              {faNumber(result.kills)} از {faNumber(result.totalEnemies)} دشمن ·{' '}
+              {faNumber(Math.round(result.accuracy * 100))}٪ دقت
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {showCanvas ? null : (
+        <div className="arena-notice">
+          <div className="arena-notice__card">
+            <p className="arena-notice__title">میدان سه‌بعدی اجرا نمی‌شود</p>
+            <p className="arena-notice__body">
+              مرورگر این دستگاه WebGL ندارد، پس نمی‌شود میدان را کشید. این نبرد را روی کاغذ حساب
+              می‌کنیم — همان قاعدهٔ قدیمی: توانِ رزمی به‌علاوهٔ کمی شانس.
+            </p>
+            <button type="button" className="btn btn--primary btn--lg" onClick={resolveOnPaper}>
+              نبرد را روی کاغذ حساب کن
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

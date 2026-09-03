@@ -1,0 +1,528 @@
+/* The 3D arena: the field, the HUD over it, and the controls over that.
+   Everything here resolves back to tokens.css. */
+
+/* ------------------------------------------------------------------ *
+ *  The field
+ * ------------------------------------------------------------------ */
+
+.arena {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg-deep);
+  /* The arena owns the whole viewport, so nothing behind it may scroll or
+     bounce under a thumb that missed a stick. */
+  touch-action: none;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.arena__field {
+  position: absolute;
+  inset: 0;
+}
+
+.arena__stage {
+  position: absolute;
+  inset: 0;
+}
+
+.arena__stage > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Shake is applied to the field wrapper rather than to the camera, so the HUD
+   above it stays perfectly still and readable while the world lurches. */
+.arena__field.is-shaking {
+  will-change: transform;
+}
+
+/* ------------------------------------------------------------------ *
+ *  HUD
+ * ------------------------------------------------------------------ */
+
+.arena-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.arena-hud__top {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: calc(var(--s-3) + env(safe-area-inset-top)) var(--s-4) var(--s-3);
+  background: linear-gradient(to bottom, rgba(16, 12, 42, 0.78), transparent);
+}
+
+.arena-stat {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+
+.arena-stat__label {
+  font-size: var(--fs-xs);
+  color: var(--ink-muted);
+}
+
+.arena-stat__value {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--ink);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+.arena-stat--timer .arena-stat__value {
+  font-size: var(--fs-xl);
+  color: var(--ink-muted);
+}
+
+.arena-stat__value.is-urgent {
+  color: var(--rose);
+  animation: arena-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes arena-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* -------- crosshair -------- */
+
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  --gap: 8px;
+  transition: opacity 0.14s ease;
+}
+
+.crosshair__arm {
+  position: absolute;
+  background: rgba(246, 243, 255, 0.9);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+}
+
+.crosshair__arm--up,
+.crosshair__arm--down {
+  width: 2px;
+  height: 9px;
+  left: -1px;
+}
+
+.crosshair__arm--up {
+  bottom: var(--gap);
+}
+.crosshair__arm--down {
+  top: var(--gap);
+}
+
+.crosshair__arm--left,
+.crosshair__arm--right {
+  height: 2px;
+  width: 9px;
+  top: -1px;
+}
+
+.crosshair__arm--left {
+  right: var(--gap);
+}
+.crosshair__arm--right {
+  left: var(--gap);
+}
+
+/* The confirmation that a shot connected. Without it a shooter feels dead. */
+.crosshair__marker {
+  position: absolute;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  opacity: 0;
+  transition: opacity 0.08s ease;
+  background:
+    linear-gradient(45deg, transparent 45%, var(--gold) 45%, var(--gold) 55%, transparent 55%),
+    linear-gradient(-45deg, transparent 45%, var(--gold) 45%, var(--gold) 55%, transparent 55%);
+}
+
+/* -------- floating damage -------- */
+
+.arena-dmg-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.arena-dmg {
+  position: absolute;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--gold);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  animation: arena-rise 0.7s ease-out;
+}
+
+.arena-dmg--kill {
+  font-size: var(--fs-xl);
+  color: var(--rose);
+}
+
+@keyframes arena-rise {
+  0% {
+    opacity: 1;
+    transform: translateY(6px) scale(0.85);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(1.1);
+  }
+}
+
+/* -------- where that came from -------- */
+
+.arena-hurt-layer {
+  position: absolute;
+  inset: 0;
+}
+
+/* Each arc is rotated to point at whatever landed the blow, then fades. The
+   arc itself sits at the top of the rotated box, so a rotation of 0 means
+   "straight ahead". */
+.arena-hurt {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(74vmin, 460px);
+  height: min(74vmin, 460px);
+  margin-left: min(-37vmin, -230px);
+  margin-top: min(-37vmin, -230px);
+  border-radius: 50%;
+  opacity: 0;
+  background: conic-gradient(
+    from -20deg,
+    rgba(255, 111, 125, 0.65),
+    rgba(255, 111, 125, 0) 40deg
+  );
+  mask: radial-gradient(circle, transparent 62%, #000 74%, #000 100%);
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 74%, #000 100%);
+  animation: arena-fade 0.9s ease-out;
+}
+
+@keyframes arena-fade {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* -------- banners -------- */
+
+.arena-banner {
+  position: absolute;
+  inset-inline: 0;
+  top: 22%;
+  text-align: center;
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+  color: var(--gold);
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.8);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.arena-banner.is-on {
+  opacity: 1;
+  animation: arena-slam 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+@keyframes arena-slam {
+  0% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.arena-streak {
+  position: absolute;
+  inset-inline-start: 50%;
+  top: 34%;
+  transform: translateX(-50%);
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  color: var(--teal);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.arena-streak.is-on {
+  opacity: 1;
+}
+
+/* -------- vitals -------- */
+
+.arena-hud__bottom {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-3) var(--s-4) calc(var(--s-3) + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(16, 12, 42, 0.72), transparent);
+}
+
+.arena-vitals {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 42%;
+}
+
+.arena-vitals__label {
+  font-size: var(--fs-xs);
+  color: var(--ink-muted);
+}
+
+.arena-vitals__track {
+  position: relative;
+  flex: 1;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.arena-vitals__fill,
+.arena-vitals__ghost {
+  position: absolute;
+  inset: 0;
+  transform-origin: right center; /* RTL: the bar drains leftward. */
+  border-radius: var(--r-pill);
+}
+
+.arena-vitals__fill {
+  background: linear-gradient(90deg, var(--teal-deep), var(--teal));
+}
+
+.arena-vitals__ghost {
+  background: var(--rose-deep);
+}
+
+.arena-vitals__num {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  min-width: 3ch;
+  text-align: center;
+}
+
+.arena-ammo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.arena-ammo__count {
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.arena-ammo__count--melee {
+  font-size: var(--fs-2xl);
+}
+
+.arena-ammo__state {
+  font-size: var(--fs-xs);
+  color: var(--gold);
+  min-height: 1em;
+}
+
+.arena-ammo__heat {
+  width: 92px;
+  height: 5px;
+  border-radius: var(--r-pill);
+  background: rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.arena-ammo__heatfill {
+  display: block;
+  height: 100%;
+  transform-origin: right center;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold));
+}
+
+.arena-ammo__heatfill.is-redline {
+  background: var(--rose);
+}
+
+/* -------- danger -------- */
+
+.arena-vignette {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(161, 34, 52, 0.75) 100%);
+}
+
+.arena-hud.is-danger .arena-vignette {
+  opacity: 1;
+  animation: arena-pulse 1.5s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Controls
+ * ------------------------------------------------------------------ */
+
+.arena-controls {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+.stick {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 118px;
+  height: 118px;
+  margin-left: -59px;
+  margin-top: -59px;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  border: 2px solid rgba(246, 243, 255, 0.22);
+  background: rgba(16, 12, 42, 0.28);
+  transition: opacity 0.12s ease;
+}
+
+.stick__knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(246, 243, 255, 0.42);
+  box-shadow: var(--shadow-sm);
+}
+
+.arena-buttons {
+  position: absolute;
+  right: calc(var(--s-4) + env(safe-area-inset-right));
+  bottom: calc(var(--s-7) + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: var(--s-3);
+  justify-items: end;
+  align-items: end;
+}
+
+.abtn {
+  display: grid;
+  place-items: center;
+  width: var(--tap);
+  height: var(--tap);
+  border: 2px solid rgba(246, 243, 255, 0.25);
+  border-radius: 50%;
+  background: rgba(36, 27, 87, 0.55);
+  color: var(--ink);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.abtn:active {
+  background: rgba(155, 123, 255, 0.55);
+  transform: scale(0.94);
+}
+
+.abtn--ads.is-on {
+  background: rgba(255, 198, 61, 0.5);
+  border-color: var(--gold);
+}
+
+/* The trigger is the one control a thumb must never miss, so it is the
+   largest thing on screen and it owns the corner. */
+.abtn--fire {
+  grid-column: span 2;
+  width: 78px;
+  height: 78px;
+  font-size: var(--fs-2xl);
+  border-color: rgba(255, 111, 125, 0.55);
+  background: rgba(161, 34, 52, 0.5);
+}
+
+/* ------------------------------------------------------------------ *
+ *  Overlays
+ * ------------------------------------------------------------------ */
+
+.arena-notice {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--s-5);
+  text-align: center;
+  background: rgba(16, 12, 42, 0.82);
+  z-index: 5;
+}
+
+/* The drop-in card fades out under the fight rather than being unmounted, so
+   the arena behind it is already live and running by the time it clears. */
+.arena-notice--brief {
+  pointer-events: none;
+  background: rgba(16, 12, 42, 0.7);
+  transition: opacity 0.45s ease;
+}
+
+.arena-notice__card {
+  max-width: 30rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.arena-notice__title {
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+}
+
+.arena-notice__body {
+  color: var(--ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arena-dmg,
+  .arena-hurt,
+  .arena-banner.is-on,
+  .arena-stat__value.is-urgent,
+  .arena-hud.is-danger .arena-vignette {
+    animation: none;
+  }
+}
