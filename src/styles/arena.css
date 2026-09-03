@@ -69,6 +69,79 @@
   gap: var(--s-2);
 }
 
+/* The boss bar. One wide track under the top row, in the register every
+   action game has taught: this enemy is the fight now. Hidden and empty for
+   the five battles that have no boss. */
+.arena-boss {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 66px);
+  left: 50%;
+  width: min(520px, 86%);
+  display: grid;
+  gap: 4px;
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none;
+}
+
+.arena-boss.is-on {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.arena-boss__name {
+  text-align: center;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--ink);
+  text-shadow: 0 1px 6px rgba(16, 12, 42, 0.9);
+}
+
+.arena-boss__track {
+  position: relative;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: rgba(16, 12, 42, 0.72);
+  border: 1px solid rgba(246, 243, 255, 0.24);
+  overflow: hidden;
+}
+
+.arena-boss__fill,
+.arena-boss__ghost {
+  position: absolute;
+  inset: 0;
+  transform-origin: right center; /* RTL: drains leftward, like every bar here. */
+  border-radius: var(--r-pill);
+}
+
+.arena-boss__fill {
+  /* Violet into rose: the boss's own emissive palette, and unmistakably not
+     the teal the player's bar owns. */
+  background: linear-gradient(90deg, var(--violet), var(--rose));
+}
+
+.arena-boss__ghost {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* The last quarter breathes, so the kill feels within reach. */
+.arena-boss.is-critical .arena-boss__fill {
+  animation: arena-boss-pulse 0.85s ease-in-out infinite;
+}
+
+@keyframes arena-boss-pulse {
+  50% {
+    filter: brightness(1.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arena-boss.is-critical .arena-boss__fill {
+    animation: none;
+  }
+}
+
 .arena-stat__label {
   font-size: var(--fs-xs);
   color: var(--ink-muted);

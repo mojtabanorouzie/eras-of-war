@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { playCue } from '../game/audio'
 import { aimSpread, enemiesLeft } from '../game/arena/sim'
 import { faNumber } from '../game/format'
+import type { ArenaEnemy } from '../game/arena/types'
 import type { ArenaDraw } from './useArena'
 
 /**
@@ -75,6 +76,10 @@ export function ArenaHud({
   const healthFill = useRef<HTMLElement>(null)
   const healthGhost = useRef<HTMLElement>(null)
   const healthText = useRef<HTMLSpanElement>(null)
+  const bossWrap = useRef<HTMLDivElement>(null)
+  const bossName = useRef<HTMLSpanElement>(null)
+  const bossFill = useRef<HTMLElement>(null)
+  const bossGhost = useRef<HTMLElement>(null)
   const ammoText = useRef<HTMLSpanElement>(null)
   const ammoState = useRef<HTMLSpanElement>(null)
   const heatFill = useRef<HTMLElement>(null)
@@ -113,6 +118,9 @@ export function ArenaHud({
     let shownWave = 0
     let wasReloading = false
     let shotCue: 'shot' | 'shotBig' | 'shotEnergy' | 'swing' | null = null
+    let bossOn = false
+    let bossCritical = false
+    let bossGhostAt = 1
 
     /** Restarts a CSS animation. The reflow between the two writes is required. */
     const replay = (node: HTMLElement) => {
@@ -182,6 +190,45 @@ export function ArenaHud({
       if (state.waveIndex !== shownWave && waveText.current) {
         shownWave = state.waveIndex
         waveText.current.textContent = `${faNumber(state.waveIndex)} از ${faNumber(state.waves.length)}`
+      }
+
+      /* -------- the boss bar -------- */
+      // A plain loop, not a find(): this runs sixty times a second and a
+      // closure per frame is exactly the garbage this file exists to avoid.
+      let boss: ArenaEnemy | null = null
+      for (const candidate of state.enemies) {
+        if (candidate.kind === 'boss' && candidate.alive) {
+          boss = candidate
+          break
+        }
+      }
+
+      if ((boss !== null) !== bossOn) {
+        bossOn = boss !== null
+        bossWrap.current?.classList.toggle('is-on', bossOn)
+        if (bossOn) {
+          // The name is written the moment the boss lands rather than at
+          // mount, because only the fight knows which emoji leads the army.
+          if (bossName.current) bossName.current.textContent = `${state.enemyEmoji} ${enemyName}`
+          bossGhostAt = 1
+        }
+      }
+      if (boss) {
+        const bossAt = boss.maxHealth > 0 ? boss.health / boss.maxHealth : 0
+        if (bossFill.current) {
+          bossFill.current.style.transform = `scaleX(${Math.max(0, bossAt).toFixed(3)})`
+        }
+        // The same slow, downward-only ghost the player's bar has, so a big
+        // sniper hit on the boss stays readable as a chunk rather than a blink.
+        bossGhostAt = bossAt > bossGhostAt ? bossAt : bossGhostAt + (bossAt - bossGhostAt) * Math.min(1, dt * 2.6)
+        if (bossGhost.current) {
+          bossGhost.current.style.transform = `scaleX(${Math.max(0, bossGhostAt).toFixed(3)})`
+        }
+        const critical = bossAt > 0 && bossAt < 0.25
+        if (critical !== bossCritical) {
+          bossCritical = critical
+          bossWrap.current?.classList.toggle('is-critical', critical)
+        }
       }
 
       const remaining = Math.max(0, Math.ceil(state.timeLimit - state.elapsed))
@@ -281,7 +328,7 @@ export function ArenaHud({
         }
       }
     })
-  }, [subscribe])
+  }, [subscribe, enemyName])
 
   return (
     <div ref={root} className="arena-hud">
@@ -302,6 +349,16 @@ export function ArenaHud({
           <span ref={enemyCount} className="arena-stat__value">
             {faNumber(0)}
           </span>
+        </div>
+      </div>
+
+      {/* Empty and invisible until a boss actually stands on the field, so
+          the five ordinary battles never pay for it. */}
+      <div ref={bossWrap} className="arena-boss" aria-hidden="true">
+        <span ref={bossName} className="arena-boss__name" />
+        <div className="arena-boss__track">
+          <i ref={bossGhost} className="arena-boss__ghost" />
+          <i ref={bossFill} className="arena-boss__fill" />
         </div>
       </div>
 
