@@ -64,6 +64,8 @@ interface ResolvedBattle {
   outcome: BattleOutcome
   weapon: Weapon
   payout: number
+  /** The fight as it actually went, for the scoreboard. */
+  fight: ArenaResult
 }
 
 export function App() {
@@ -121,6 +123,7 @@ export function App() {
         setup: pending.setup,
         outcome,
         weapon: pending.weapon,
+        fight: result,
         payout: payoutFor(pending.setup.level, won, state.clearedLevelIds.includes(pending.setup.level.id)),
       })
       resolveBattle(pending.setup.level, won)
@@ -241,6 +244,7 @@ export function App() {
         <Result
           setup={resolved.setup}
           outcome={resolved.outcome}
+          fight={resolved.fight}
           playerWeapon={resolved.weapon}
           ownedWeapons={ownedWeapons(state)}
           payout={resolved.payout}

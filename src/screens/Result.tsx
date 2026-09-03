@@ -1,5 +1,7 @@
 import { BonusChips } from '../components/BonusChips'
 import { CoinBadge } from '../components/CoinBadge'
+import { StatGrid } from '../components/StatGrid'
+import type { ArenaResult } from '../game/arena/types'
 import { bestWeaponFor, evaluateTerrainFit } from '../game/battleEngine'
 import { faNumber, faSigned, formatCoins } from '../game/format'
 import type { BattleSetup } from '../game/progression'
@@ -8,6 +10,8 @@ import type { BattleOutcome, Weapon } from '../game/types'
 interface ResultProps {
   setup: BattleSetup
   outcome: BattleOutcome
+  /** The fight as it actually went — kills, accuracy, streak, clock. */
+  fight: ArenaResult
   playerWeapon: Weapon
   ownedWeapons: Weapon[]
   payout: number
@@ -21,6 +25,7 @@ interface ResultProps {
 export function Result({
   setup,
   outcome,
+  fight,
   playerWeapon,
   ownedWeapons,
   payout,
@@ -34,6 +39,36 @@ export function Result({
 
   const better = bestWeaponFor(ownedWeapons, terrain)
   const hasBetterOption = !won && better !== undefined && better.id !== playerWeapon.id
+
+  // A shooter owes the player its numbers, and a dash is more honest than a
+  // zero for things that never happened — a fight with no shots fired has no
+  // accuracy, it is not 0% accurate.
+  const accuracy =
+    fight.shotsFired > 0 ? `٪${faNumber(Math.round(fight.accuracy * 100))}` : '—'
+  const scoreboard = [
+    {
+      label: 'کشته‌ها',
+      value: `${faNumber(fight.kills)} از ${faNumber(fight.totalEnemies)}`,
+      emoji: '⚔️',
+    },
+    {
+      // A swung weapon connects or it does not; calling that "shot accuracy"
+      // would read as a bug to anyone holding an axe.
+      label: playerWeapon.type === 'melee' ? 'دقت ضربه' : 'دقت تیر',
+      value: accuracy,
+      emoji: '🎯',
+    },
+    {
+      label: 'بهترین زنجیره',
+      value: fight.bestStreak > 0 ? `×${faNumber(fight.bestStreak)}` : '—',
+      emoji: '🔥',
+    },
+    {
+      label: 'زمان نبرد',
+      value: `${faNumber(Math.round(fight.duration))} ثانیه`,
+      emoji: '⏱️',
+    },
+  ]
 
   return (
     <div className="screen">
@@ -61,6 +96,11 @@ export function Result({
               از میدان جمع کردی — هیچ‌وقت دست خالی برنمی‌گردی.
             </p>
           ) : null}
+        </section>
+
+        <section className="card stack stack--tight">
+          <p className="eyebrow">کارنامهٔ میدان</p>
+          <StatGrid items={scoreboard} />
         </section>
 
         <p className="why">{outcome.explanation}</p>
