@@ -194,6 +194,14 @@ const ROLE_WEIGHT: Record<EnemyKind, { health: number; damage: number }> = {
   rusher: { health: 0.75, damage: 0.8 },
   gunner: { health: 0.9, damage: 1 },
   heavy: { health: 1.9, damage: 1.7 },
+  // Fragile on purpose — the whole enemy is "pop it before it arrives" — and
+  // its damage share is one payload, spent all at once when it goes off.
+  bomber: { health: 0.6, damage: 1.3 },
+  // Per BOLT, and it fires three per trigger on a 2.6s cycle, so the share is
+  // sized down to keep its throughput beside the gunner's, not triple it.
+  volley: { health: 0.85, damage: 0.45 },
+  // One heavy round on the game's slowest cycle: a spike, not a stream.
+  lancer: { health: 0.8, damage: 1.5 },
   boss: { health: 5, damage: 2.2 },
 }
 
@@ -264,36 +272,40 @@ function compositionFor(level: Level, terrain: Terrain): EnemyKind[][] {
   switch (level.id) {
     case 1:
       return [[brawler, brawler], [brawler, brawler, brawler]]
+    // Each new weapon gets a debut level, one at a time, so the player meets
+    // every threat in isolation before it appears in a crowd: bursts in the
+    // desert, bombers in the rubble, lancers on the long snow sightlines.
     case 2:
       return [
         [brawler, shooter],
-        [brawler, brawler, shooter, 'gunner'],
+        [brawler, 'volley', shooter, 'gunner'],
       ]
     case 3:
       return [
         [brawler, shooter],
-        [brawler, shooter, 'gunner'],
-        [brawler, brawler, shooter, 'gunner'],
+        [brawler, 'bomber', 'gunner'],
+        [brawler, 'bomber', shooter, 'gunner'],
       ]
     case 4:
       return [
         [brawler, shooter],
-        [brawler, 'gunner', 'heavy'],
-        [brawler, brawler, shooter, 'gunner', 'heavy'],
+        [brawler, 'lancer', 'heavy'],
+        [brawler, brawler, 'volley', 'gunner', 'heavy'],
       ]
     case 5:
       return [
-        [brawler, shooter, 'gunner'],
-        [brawler, brawler, 'gunner', 'heavy'],
-        [brawler, shooter, 'gunner', 'gunner', 'heavy'],
+        [brawler, 'volley', 'gunner'],
+        [brawler, 'bomber', 'gunner', 'heavy'],
+        [brawler, 'volley', 'gunner', 'lancer', 'heavy'],
       ]
     default:
       // The last capital. The machine army sends escorts first and only walks
-      // its commander out once the player has spent something getting there.
+      // its commander out once the player has spent something getting there —
+      // and it sends one of everything, because it has been paying attention.
       return [
-        [brawler, shooter, 'gunner'],
-        [brawler, brawler, 'gunner', 'heavy'],
-        [ 'boss', brawler, 'gunner', 'heavy'],
+        [brawler, 'volley', 'gunner'],
+        [brawler, 'bomber', 'lancer', 'heavy'],
+        ['boss', 'bomber', 'gunner', 'heavy'],
       ]
   }
 }

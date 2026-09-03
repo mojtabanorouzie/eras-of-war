@@ -182,15 +182,68 @@ const KIND_PROFILE: Record<EnemyKind, KindProfile> = {
     splash: 2.4,
     gravity: 0,
   },
+  // Sprints straight in and lights a fuse. The wind-up IS the fuse — the same
+  // telegraph the player already reads — and the payload is the body itself,
+  // so its attackRange is really its trigger distance. Kill it far away or
+  // pay for the proximity; that choice is the whole enemy.
+  bomber: {
+    speed: 7.4,
+    cycle: 9,
+    windUp: 0.55,
+    preferredRange: 0.4,
+    attackRange: 2.3,
+    projectileSpeed: 0,
+    splash: 0,
+    gravity: 0,
+  },
+  // Three quick bolts per trigger. A dodge timed to a single shot eats the
+  // other two, which is exactly the habit this one exists to break.
+  volley: {
+    speed: 4.1,
+    cycle: 2.6,
+    windUp: 0.6,
+    preferredRange: 14,
+    attackRange: 22,
+    projectileSpeed: 40,
+    splash: 0,
+    gravity: 0,
+  },
+  // One heavy round from the far side of the arena, on the longest telegraph
+  // in the game. Fragile up close: the answer to a lancer is to go and get it.
+  lancer: {
+    speed: 3.4,
+    cycle: 4.2,
+    windUp: 1.15,
+    preferredRange: 20,
+    attackRange: 30,
+    projectileSpeed: 60,
+    splash: 0,
+    gravity: 0,
+  },
 }
+
+/** The bomber's payload radius. Its damage is its share, spent all at once. */
+const BOMBER_BLAST = 3.2
+
+/** The volley's rhythm: how many bolts per trigger, and the gap between them. */
+const VOLLEY_BURST = 3
+const VOLLEY_GAP = 0.13
 
 /** The boss is physically bigger, so it is easier to hit and harder to miss. */
 function radiusOf(kind: EnemyKind): number {
-  return kind === 'boss' ? ACTOR_RADIUS * 2.1 : kind === 'heavy' ? ACTOR_RADIUS * 1.4 : ACTOR_RADIUS
+  if (kind === 'boss') return ACTOR_RADIUS * 2.1
+  if (kind === 'heavy') return ACTOR_RADIUS * 1.4
+  if (kind === 'bomber') return ACTOR_RADIUS * 1.15
+  if (kind === 'lancer') return ACTOR_RADIUS * 0.9
+  return ACTOR_RADIUS
 }
 
 function heightOf(kind: EnemyKind): number {
-  return kind === 'boss' ? ACTOR_HEIGHT * 1.7 : kind === 'heavy' ? ACTOR_HEIGHT * 1.25 : ACTOR_HEIGHT
+  if (kind === 'boss') return ACTOR_HEIGHT * 1.7
+  if (kind === 'heavy') return ACTOR_HEIGHT * 1.25
+  if (kind === 'bomber') return ACTOR_HEIGHT * 0.85
+  if (kind === 'lancer') return ACTOR_HEIGHT * 1.15
+  return ACTOR_HEIGHT
 }
 
 /* ------------------------------------------------------------------ *
@@ -516,6 +569,8 @@ function spawnWave(state: ArenaState): void {
       // a sequence of threats the player can actually answer one at a time.
       attackCooldown: 0.5 + index * 0.45,
       windUp: 0,
+      burstLeft: 0,
+      burstIn: 0,
       speed: profile.speed * state.difficulty.enemySpeed,
       preferredRange: profile.preferredRange,
       attackRange: profile.attackRange,
@@ -575,6 +630,14 @@ function hurtEnemy(state: ArenaState, enemy: ArenaEnemy, amount: number, at: Vec
     state.hitStop = last ? FINISHER_HIT_STOP : Math.min(MAX_HIT_STOP, amount * HIT_STOP_PER_DAMAGE)
     if (last) state.slowMotion = Math.max(state.slowMotion, FINISHER_SLOW_MOTION)
     state.shake = Math.min(1, state.shake + 0.25)
+
+    // A bomber goes off however it dies. That is the whole triage lesson:
+    // the blast is not avoided by killing it, only by killing it FAR — and
+    // the fuse resolving routes through this same line, so there is exactly
+    // one detonation site whatever lit it.
+    if (enemy.kind === 'bomber') {
+      detonate(state, { x: enemy.pos.x, y: 0.6, z: enemy.pos.z }, BOMBER_BLAST, enemy.damage, 'enemy')
+    }
     return
   }
 
@@ -1276,6 +1339,28 @@ const CORPSE_SECONDS = 1.2
 const SEPARATION_FORCE = 5.5
 
 function enemyAttack(state: ArenaState, enemy: ArenaEnemy): void {
+  // The fuse resolved: the bomber's attack is its own death, and the blast
+  // rides the kill bookkeeping so waves, supplies and the finisher all agree.
+  if (enemy.kind === 'bomber') {
+    hurtEnemy(state, enemy, enemy.health + 1, {
+      x: enemy.pos.x,
+      y: ACTOR_HEIGHT * 0.5,
+      z: enemy.pos.z,
+    })
+    return
+  }
+
+  if (enemy.kind === 'volley') {
+    fireEnemyProjectile(state, enemy)
+    enemy.burstLeft = VOLLEY_BURST - 1
+    enemy.burstIn = VOLLEY_GAP
+    return
+  }
+
+  fireEnemyProjectile(state, enemy)
+}
+
+function fireEnemyProjectile(state: ArenaState, enemy: ArenaEnemy): void {
   const profile = KIND_PROFILE[enemy.kind]
   const player = state.player
   const from: Vec3 = { x: enemy.pos.x, y: MUZZLE_HEIGHT, z: enemy.pos.z }
@@ -1362,6 +1447,20 @@ function updateEnemy(state: ArenaState, enemy: ArenaEnemy, step: number): void {
     return
   }
 
+  // A burst in progress walks out round by round, and the body is planted
+  // while it does — the same commitment a wind-up carries, paid in the middle
+  // of the attack instead of before it. Each round re-aims, so a dodge that
+  // beat the first bolt has not yet beaten the burst.
+  if (enemy.burstLeft > 0) {
+    enemy.burstIn -= step
+    if (enemy.burstIn <= 0) {
+      fireEnemyProjectile(state, enemy)
+      enemy.burstLeft -= 1
+      enemy.burstIn = VOLLEY_GAP
+    }
+    return
+  }
+
   // The boss stops being patient once it is hurt, which is the only difficulty
   // curve inside a single fight the game has.
   const wounded = enemy.kind === 'boss' && enemy.health < enemy.maxHealth * 0.5
@@ -1382,7 +1481,8 @@ function updateEnemy(state: ArenaState, enemy: ArenaEnemy, step: number): void {
   let moveZ = toPlayerZ * approach
 
   // Circling, so they do not all pile onto one line of fire.
-  const strafeWeight = enemy.kind === 'rusher' ? 0.25 : 0.75
+  const strafeWeight =
+    enemy.kind === 'bomber' ? 0.1 : enemy.kind === 'rusher' ? 0.25 : 0.75
   moveX += -toPlayerZ * enemy.strafeDir * strafeWeight
   moveZ += toPlayerX * enemy.strafeDir * strafeWeight
 

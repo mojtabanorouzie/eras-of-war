@@ -12,7 +12,14 @@
 
 export type ArenaViewSide = 'player' | 'enemy'
 
-export type ArenaViewEnemyKind = 'rusher' | 'gunner' | 'heavy' | 'boss'
+export type ArenaViewEnemyKind =
+  | 'rusher'
+  | 'gunner'
+  | 'heavy'
+  | 'bomber'
+  | 'volley'
+  | 'lancer'
+  | 'boss'
 
 export interface Vec2View {
   readonly x: number

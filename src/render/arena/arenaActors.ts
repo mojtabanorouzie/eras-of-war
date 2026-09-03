@@ -1279,6 +1279,50 @@ const KINDS: Record<ArenaViewEnemyKind, KindProfile> = {
     crown: 'bolts',
     core: false,
   },
+  // Squat, round and hazard-orange, hunched into a sprint, a fuse-antenna on
+  // the skull and the payload glowing in the chest. Reads as "get away".
+  bomber: {
+    plate: 0x30241c,
+    accent: 0xff9838,
+    height: 0.82,
+    girth: 1.15,
+    hunch: 0.3,
+    stride: 3.1,
+    legSwing: 1.0,
+    sway: 0.03,
+    arms: 'blades',
+    crown: 'antenna',
+    core: true,
+  },
+  // Olive drab behind a rifle, bolts along the crown: the burst is the tell.
+  volley: {
+    plate: 0x4a5530,
+    accent: 0xb7e34a,
+    height: 0.98,
+    girth: 0.9,
+    hunch: 0.1,
+    stride: 2.0,
+    legSwing: 0.6,
+    sway: 0.04,
+    arms: 'rifle',
+    crown: 'bolts',
+    core: false,
+  },
+  // Tall, thin, pale violet, rifle raised: the silhouette says "somewhere far
+  // away, something is already aiming".
+  lancer: {
+    plate: 0x5b4a6e,
+    accent: 0xcfa9ff,
+    height: 1.16,
+    girth: 0.68,
+    hunch: 0.02,
+    stride: 1.6,
+    legSwing: 0.5,
+    sway: 0.05,
+    arms: 'rifle',
+    crown: 'antenna',
+    core: false,
+  },
   // Near-black and gold, half again as tall as the heavy, crowned and lit
   // from within. Unmistakable, which is the entire job.
   boss: {

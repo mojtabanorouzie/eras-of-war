@@ -36,6 +36,12 @@ export type EnemyKind =
   | 'gunner'
   /** Slow, tough, lobs splash. Punishes hiding behind one piece of cover. */
   | 'heavy'
+  /** Sprints in and detonates. Punishes ignoring the minimap — kill it FAR. */
+  | 'bomber'
+  /** Fires three-bolt bursts. Punishes dodges timed to a single shot. */
+  | 'volley'
+  /** One heavy round from extreme range on a long telegraph. Punishes open ground. */
+  | 'lancer'
   /** Level six only. Everything above, with a health pool and phases. */
   | 'boss'
 
@@ -221,6 +227,10 @@ export interface ArenaEnemy {
   attackRange: number
   /** Above 0 for a shooter: the speed of the round it puts out. */
   projectileSpeed: number
+  /** Rounds still to come in the current burst. Only the volley uses it. */
+  burstLeft: number
+  /** Seconds until the next round of the burst leaves. */
+  burstIn: number
 
   hurt: number
   /** Seconds spent reeling. Cannot move or attack. */
