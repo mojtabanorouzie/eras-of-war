@@ -555,11 +555,18 @@ function hurtEnemy(state: ArenaState, enemy: ArenaEnemy, amount: number, at: Vec
     state.player.streak += 1
     state.player.streakWindow = STREAK_WINDOW
 
-    // The drop rule, in one line: bodies three, six, nine leave a pack where
-    // they fell. It rides the same counter the finisher reads, so the rule is
-    // exact however the kill arrived — bullet, splash or blade.
+    // The drop rule: bodies three, six, nine leave supplies where they fell,
+    // alternating medkit, ammo box, medkit. One counter, one teachable rule,
+    // and it rides the same tally the finisher reads, so it is exact however
+    // the kill arrived — bullet, splash or blade.
     if (state.killed % PACK_EVERY_KILLS === 0) {
-      state.packs.push({ id: state.nextPackId, pos: { x: enemy.pos.x, z: enemy.pos.z }, age: 0 })
+      const kind = state.killed % (PACK_EVERY_KILLS * 2) === 0 ? 'ammo' : 'health'
+      state.packs.push({
+        id: state.nextPackId,
+        kind,
+        pos: { x: enemy.pos.x, z: enemy.pos.z },
+        age: 0,
+      })
       state.nextPackId += 1
     }
 
@@ -993,27 +1000,50 @@ function assistAim(state: ArenaState, input: ArenaInput, step: number): void {
 }
 
 /**
- * Ages the packs and hands one to a player standing on it.
+ * Ages the supplies and hands one to a player standing on it.
  *
- * At full health nothing is taken: the pack stays where it lies, so heals can
- * be banked rather than wasted. That makes walking over one always safe.
+ * Nothing is ever taken that would do nothing: a medkit waits for a wound, an
+ * ammo box waits for an emptied magazine or a hot barrel, and a swung weapon
+ * leaves ammo lying forever. That makes walking over supplies always safe,
+ * and banking them a real tactic.
  */
 function collectPacks(state: ArenaState, step: number): void {
-  const { player } = state
+  const { player, gun } = state
   for (const pack of state.packs) pack.age += step
 
-  if (!player.alive || player.health >= player.maxHealth) return
+  if (!player.alive) return
+
+  const wounded = player.health < player.maxHealth
+  // An ammo box is useful the moment the magazine is not full, a reload is in
+  // progress, or an energy weapon is carrying any heat at all.
+  const dry = gun.overheat
+    ? player.heat > 0 || player.overheated
+    : player.ammo < gun.magazine || player.reloadLeft > 0
 
   for (let i = 0; i < state.packs.length; i += 1) {
     const pack = state.packs[i]
     if (!pack) continue
+    if (pack.kind === 'health' && !wounded) continue
+    if (pack.kind === 'ammo' && (gun.melee || !dry)) continue
     if (Math.hypot(pack.pos.x - player.pos.x, pack.pos.z - player.pos.z) > PACK_RADIUS) continue
 
-    const healed = Math.min(PACK_HEAL, player.maxHealth - player.health)
-    player.health += healed
-    state.packs.splice(i, 1)
-    emit(state, 'pickup', { x: pack.pos.x, y: 0.5, z: pack.pos.z }, healed)
-    // One pack per frame is plenty; a second one under the same boot waits.
+    if (pack.kind === 'health') {
+      const healed = Math.min(PACK_HEAL, player.maxHealth - player.health)
+      player.health += healed
+      state.packs.splice(i, 1)
+      emit(state, 'pickup', { x: pack.pos.x, y: 0.5, z: pack.pos.z }, healed)
+    } else {
+      // The refund is the reload itself: rounds back in the magazine, any
+      // reload in progress finished on the spot, and a hot barrel vented.
+      const restored = gun.overheat ? gun.magazine : gun.magazine - player.ammo
+      player.ammo = gun.magazine
+      player.reloadLeft = 0
+      player.heat = 0
+      player.overheated = false
+      state.packs.splice(i, 1)
+      emit(state, 'resupply', { x: pack.pos.x, y: 0.5, z: pack.pos.z }, restored)
+    }
+    // One supply per frame is plenty; a second one under the same boot waits.
     return
   }
 }

@@ -169,6 +169,7 @@ export function ArenaHud({
     const packSlots = mapPacks.current
       ? (Array.from(mapPacks.current.children) as HTMLElement[])
       : []
+    const packKinds: string[] = packSlots.map(() => '')
 
     /** Restarts a CSS animation. The reflow between the two writes is required. */
     const replay = (node: HTMLElement) => {
@@ -386,12 +387,19 @@ export function ArenaHud({
         const mx = (player.pos.x + px) * MINIMAP_SCALE + MINIMAP_WORLD / 2
         const mz = (player.pos.z + pz) * MINIMAP_SCALE + MINIMAP_WORLD / 2
         node.style.transform = `translate(${mx.toFixed(1)}px, ${mz.toFixed(1)}px) translate(-50%, -50%)`
+        if (packKinds[packAt] !== pack.kind) {
+          packKinds[packAt] = pack.kind
+          node.className = `minimap__pack${pack.kind === 'ammo' ? ' minimap__pack--ammo' : ''}`
+        }
         if (node.style.opacity !== '1') node.style.opacity = '1'
         packAt += 1
       }
       for (; packAt < packSlots.length; packAt += 1) {
         const node = packSlots[packAt]
-        if (node && node.style.opacity !== '0') node.style.opacity = '0'
+        if (node && node.style.opacity !== '0') {
+          node.style.opacity = '0'
+          packKinds[packAt] = ''
+        }
       }
 
       const remaining = Math.max(0, Math.ceil(state.timeLimit - state.elapsed))
@@ -481,6 +489,17 @@ export function ArenaHud({
             // The one green number in the game, and the only one with a plus.
             node.textContent = `+${faNumber(Math.max(1, Math.round(event.amount)))}`
             node.className = 'arena-dmg arena-dmg--heal'
+            node.style.left = `${48 + ((event.id * 37) % 100) / 12}%`
+            node.style.top = `${40 + ((event.id * 53) % 100) / 10}%`
+            if (!motion.current) replay(node)
+          }
+        } else if (event.kind === 'resupply') {
+          playCue('resupply')
+          const node = damageSlots[damageSlot % Math.max(1, damageSlots.length)]
+          damageSlot += 1
+          if (node) {
+            node.textContent = `+${faNumber(Math.max(1, Math.round(event.amount)))}`
+            node.className = 'arena-dmg arena-dmg--ammo'
             node.style.left = `${48 + ((event.id * 37) % 100) / 12}%`
             node.style.top = `${40 + ((event.id * 53) % 100) / 10}%`
             if (!motion.current) replay(node)

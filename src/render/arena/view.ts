@@ -84,6 +84,7 @@ export interface CoverView {
 
 export interface PackView {
   readonly id: number
+  readonly kind: 'health' | 'ammo'
   readonly pos: Vec2View
   readonly age: number
 }
@@ -101,6 +102,7 @@ export interface ArenaEventView {
     | 'dodge'
     | 'empty'
     | 'pickup'
+    | 'resupply'
     | 'wave'
   readonly pos: Vec3View
   readonly amount: number

@@ -289,15 +289,25 @@ export interface Cover {
   blocksSight: boolean
 }
 
+export type SupplyKind = 'health' | 'ammo'
+
 /**
- * A health pack lying where a body fell.
+ * A supply lying where a body fell — a medkit or an ammo box.
  *
- * Deliberately not consumed at full health: walking over one while unhurt
- * leaves it lying, so a careful player can bank heals near the next wave's
- * ground instead of wasting them the moment they drop.
+ * Deliberately not consumed when it would do nothing: a full-health player
+ * walks over a medkit and leaves it lying, a full magazine leaves an ammo box
+ * untouched, and a swung weapon never consumes one at all. So supplies can be
+ * banked near the next wave's ground instead of wasted the moment they drop.
+ *
+ * The ammo box is a gift of TIME, not of damage: this game has no reserve
+ * ammunition — magazines are infinite by design, and the balance contract
+ * spends reload time as part of sustained damage — so what the box refunds is
+ * the reload itself: the magazine refills on the spot, and an energy weapon
+ * vents its heat. The tuned ladder survives untouched.
  */
 export interface HealthPack {
   id: number
+  kind: SupplyKind
   pos: Vec2
   /** Seconds since it landed, for the renderer's bob and spin. */
   age: number
@@ -335,8 +345,10 @@ export type ArenaEventKind =
   | 'dodge'
   /** The trigger was pulled on an empty magazine. */
   | 'empty'
-  /** A health pack was collected. `amount` is the health actually restored. */
+  /** A medkit was collected. `amount` is the health actually restored. */
   | 'pickup'
+  /** An ammo box was collected. `amount` is the rounds put back in the magazine. */
+  | 'resupply'
   /** A fresh wave dropped in. `amount` carries the wave number, 1-based. */
   | 'wave'
 

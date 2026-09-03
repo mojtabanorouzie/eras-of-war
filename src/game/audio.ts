@@ -30,6 +30,7 @@ type Cue =
   | 'dryFire'
   | 'blast'
   | 'heal'
+  | 'resupply'
 
 interface Tone {
   /** Oscillator pitch, or the low-pass cutoff for a noise burst. */
@@ -109,6 +110,14 @@ const CUES: Record<Cue, Tone[]> = {
   ],
   /** The trigger on an empty chamber. Thin, bright and unsatisfying, by design. */
   dryFire: [{ freq: 5000, duration: 0.03, type: 'noise', gain: 0.05, at: 0, sweepTo: 2200 }],
+  /* A magazine slapped home: two fast mechanical clacks and a click of brass.
+     Snappier than the reload's pair, because this one costs no time at all. */
+  resupply: [
+    { freq: 3000, duration: 0.035, type: 'noise', gain: 0.055, at: 0, sweepTo: 1100 },
+    { freq: 2200, duration: 0.05, type: 'noise', gain: 0.06, at: 0.06, sweepTo: 700 },
+    { freq: 1180, duration: 0.07, type: 'triangle', gain: 0.045, at: 0.11 },
+  ],
+
   /* Two soft rising notes: relief, not fanfare. It fires mid-firefight. */
   heal: [
     { freq: 620, duration: 0.09, type: 'sine', gain: 0.06, at: 0 },

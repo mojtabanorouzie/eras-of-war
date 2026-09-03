@@ -207,6 +207,20 @@
   }
 }
 
+/* An ammo box on the map: same shape as the medkit blip, brass instead of
+   green, because the two supplies differ by colour everywhere they appear. */
+.minimap__pack--ammo {
+  background: var(--gold);
+  box-shadow: 0 0 5px rgba(255, 198, 61, 0.9);
+  animation-name: minimap-ammo-pulse;
+}
+
+@keyframes minimap-ammo-pulse {
+  50% {
+    box-shadow: 0 0 9px rgba(255, 198, 61, 1);
+  }
+}
+
 /* Pinned to the rim: a direction, not a position. Dimmer says "further". */
 .minimap__blip.is-far {
   opacity: 0.55 !important;
@@ -422,6 +436,11 @@
 .arena-dmg--heal {
   color: #49f2a5;
   text-shadow: 0 0 8px rgba(73, 242, 165, 0.65);
+}
+
+.arena-dmg--ammo {
+  color: var(--gold);
+  text-shadow: 0 0 8px rgba(255, 198, 61, 0.6);
 }
 
 .arena-dmg--kill {
