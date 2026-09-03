@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ArenaInput } from '../game/arena/types'
-import { MOUSE_SENSITIVITY, TOUCH_LOOK_SPEED, TOUCH_PITCH_SPEED } from '../game/arena/world'
+import {
+  MOUSE_SENSITIVITY,
+  TOUCH_LOOK_CURVE,
+  TOUCH_LOOK_SPEED,
+  TOUCH_PITCH_SPEED,
+} from '../game/arena/world'
 import { createPadReader } from './gamepad'
 import { useReducedMotion } from './useReducedMotion'
 import type { ArenaDraw } from './useArena'
@@ -108,6 +113,13 @@ export function ArenaControls({ input, subscribe, active, melee }: ArenaControls
   // rather than React state because these change on every touch and no pixel
   // of the React tree depends on them.
   const held = useRef({ fire: false, ads: false, tapFireUntil: 0 })
+
+  // Whether aim assist applies is decided by the last device that actually
+  // moved the view, not by what happens to be plugged in: a desktop with a pad
+  // connected but a mouse in hand must not be assisted, and a phone must be.
+  // 'stick' is the default so a player who never touches a mouse is covered
+  // from the very first frame.
+  const lookSource = useRef<'stick' | 'mouse'>('stick')
   const keys = useRef({ forward: 0, back: 0, left: 0, right: 0, sprint: false, fire: false, ads: false })
 
   const [touch, setTouch] = useState(false)
@@ -381,6 +393,7 @@ export function ArenaControls({ input, subscribe, active, melee }: ArenaControls
 
     const moved = (event: MouseEvent) => {
       if (!locked()) return
+      lookSource.current = 'mouse'
       input.current.lookX += event.movementX * MOUSE_SENSITIVITY
       input.current.lookY += event.movementY * MOUSE_SENSITIVITY
     }
@@ -479,12 +492,20 @@ export function ArenaControls({ input, subscribe, active, melee }: ArenaControls
       // other stick in the game.
       const aim = look.current
       if (aim) {
-        command.lookX += aim.x * TOUCH_LOOK_SPEED * dt
-        command.lookY -= aim.y * TOUCH_PITCH_SPEED * dt
+        lookSource.current = 'stick'
+        // The same fine-control curve the gamepad earned: shape the radial
+        // magnitude, keep the direction. Without it the higher TOUCH_LOOK_SPEED
+        // ceiling would make small corrections impossible.
+        const length = Math.hypot(aim.x, aim.y)
+        const shape = length > 0 ? length ** (TOUCH_LOOK_CURVE - 1) : 0
+        command.lookX += aim.x * shape * TOUCH_LOOK_SPEED * dt
+        command.lookY -= aim.y * shape * TOUCH_PITCH_SPEED * dt
       }
-      // Already scaled and signed by the reader.
+      // Already scaled, signed and curved by the reader.
+      if (gamepad.lookX !== 0 || gamepad.lookY !== 0) lookSource.current = 'stick'
       command.lookX += gamepad.lookX
       command.lookY += gamepad.lookY
+      command.assisted = lookSource.current === 'stick'
 
       command.fire =
         held.current.fire || k.fire || gamepad.fire || now < held.current.tapFireUntil
@@ -589,6 +610,26 @@ export function ArenaControls({ input, subscribe, active, melee }: ArenaControls
           ⦿
         </button>
       </div>
+
+      {/* The mirrored trigger, and the reason it exists: an automatic weapon
+          wants the trigger HELD, but on the right the same thumb is aiming.
+          Every mobile shooter converges on this answer — a fire button under
+          the movement thumb, tap-or-hold, while the right thumb stays on the
+          stick. It sits above the movement stick's home so a sprinting thumb
+          never brushes it. */}
+      {touch && !pad ? (
+        <button
+          type="button"
+          data-arena-button=""
+          className="abtn abtn--fire abtn--fire-left"
+          onPointerDown={press('fire')}
+          onPointerUp={release('fire')}
+          onPointerCancel={release('fire')}
+          onPointerLeave={release('fire')}
+        >
+          ⦿
+        </button>
+      ) : null}
     </div>
   )
 }

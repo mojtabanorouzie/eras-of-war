@@ -478,11 +478,23 @@
    largest thing on screen and it owns the corner. */
 .abtn--fire {
   grid-column: span 2;
-  width: 78px;
-  height: 78px;
+  width: 84px;
+  height: 84px;
   font-size: var(--fs-2xl);
   border-color: rgba(255, 111, 125, 0.55);
   background: rgba(161, 34, 52, 0.5);
+}
+
+/* The left-hand trigger. Absolute rather than in the button cluster: it lives
+   on the movement thumb's side, above the stick's resting home, so an
+   automatic can be HELD while the right thumb stays on the aim stick. */
+.abtn--fire-left {
+  position: absolute;
+  left: 22px;
+  bottom: 224px;
+  grid-column: auto;
+  width: 74px;
+  height: 74px;
 }
 
 /* ------------------------------------------------------------------ *

@@ -17,6 +17,11 @@ import type {
 } from './types'
 import {
   ACTOR_HEIGHT,
+  ASSIST_FRICTION,
+  ASSIST_FRICTION_CONE,
+  ASSIST_PULL_CONE,
+  ASSIST_PULL_RATE,
+  ASSIST_RANGE,
   ACTOR_RADIUS,
   ADS_MULTIPLIER,
   ARENA_HALF,
@@ -902,6 +907,71 @@ function updateWeapon(state: ArenaState, input: ArenaInput, step: number): void 
  *  The player
  * ------------------------------------------------------------------ */
 
+/** Smallest signed angle from `from` to `to`. */
+function angleBetween(from: number, to: number): number {
+  const raw = (to - from) % (Math.PI * 2)
+  return raw > Math.PI ? raw - Math.PI * 2 : raw < -Math.PI ? raw + Math.PI * 2 : raw
+}
+
+/**
+ * Aim assist for stick-driven aim. See the essay on the constants in
+ * `world.ts` for why this exists and why a mouse never gets it.
+ *
+ * It runs inside the simulation, before the look deltas are consumed, for one
+ * load-bearing reason: determinism. Assist applied in the input layer would
+ * depend on the renderer's frame times, and a replayed fight would stop
+ * replaying. Here it is part of the same fixed step as everything else.
+ */
+function assistAim(state: ArenaState, input: ArenaInput, step: number): void {
+  const { player } = state
+
+  // The nearest target by angle, not by distance: assist is about finishing
+  // the shot the player is already making, so the enemy closest to the
+  // crosshair is the one they mean.
+  let bestYawError = 0
+  let bestPitchError = 0
+  let bestAngle = Number.POSITIVE_INFINITY
+
+  for (const enemy of state.enemies) {
+    if (!enemy.alive) continue
+    const dx = enemy.pos.x - player.pos.x
+    const dz = enemy.pos.z - player.pos.z
+    const distance = Math.hypot(dx, dz)
+    if (distance < 0.001 || distance > ASSIST_RANGE) continue
+
+    // The same yaw convention as forwardOf: a yaw of 0 faces -Z.
+    const wantYaw = Math.atan2(-dx, -dz)
+    const yawError = angleBetween(player.yaw, wantYaw)
+
+    // Aim at the torso, from the muzzle — matching where the sim itself aims
+    // when an enemy shoots back, so the two agree about what "on target" is.
+    const wantPitch = Math.atan2(ACTOR_HEIGHT * 0.55 - MUZZLE_HEIGHT, distance)
+    const pitchError = wantPitch - player.pitch
+
+    const angle = Math.hypot(yawError, pitchError)
+    if (angle < bestAngle) {
+      bestAngle = angle
+      bestYawError = yawError
+      bestPitchError = pitchError
+    }
+  }
+
+  if (bestAngle > ASSIST_FRICTION_CONE) return
+
+  // Friction: the crosshair thickens over a target, so a pass-over becomes a
+  // hold without the player changing anything about their push.
+  input.lookX *= ASSIST_FRICTION
+  input.lookY *= ASSIST_FRICTION
+
+  // Magnetism: only while firing, only inside the tighter cone, and as an
+  // exponential approach so it can finish an aim but never snap one.
+  if (input.fire && bestAngle <= ASSIST_PULL_CONE) {
+    const pull = 1 - Math.exp(-ASSIST_PULL_RATE * step)
+    player.yaw += bestYawError * pull
+    player.pitch = clamp(player.pitch + bestPitchError * pull, -PITCH_LIMIT, PITCH_LIMIT)
+  }
+}
+
 function updatePlayer(state: ArenaState, input: ArenaInput, step: number): void {
   const { player, gun } = state
 
@@ -910,6 +980,10 @@ function updatePlayer(state: ArenaState, input: ArenaInput, step: number): void 
   player.rollCooldown = countDown(player.rollCooldown, step)
   player.streakWindow = countDown(player.streakWindow, step)
   if (player.streakWindow <= 0) player.streak = 0
+
+  // A stick gets help a mouse does not need. Applied before the deltas are
+  // consumed, so friction scales what magnetism then finishes.
+  if (input.assisted) assistAim(state, input, step)
 
   // Look. The deltas are rates the input layer has already scaled by its own
   // frame time, so they are consumed whole and zeroed.

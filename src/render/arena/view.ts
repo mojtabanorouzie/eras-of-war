@@ -105,7 +105,22 @@ export interface ArenaView {
   readonly elapsed: number
   readonly briefingLeft: number
   readonly player: PlayerView
-  readonly gun: { readonly adsZoom: number; readonly emoji: string; readonly melee: boolean }
+  /**
+   * Enough of the gun to draw it. The renderer never reads damage or reach —
+   * it classifies a silhouette from how the weapon mechanically behaves, so a
+   * new weapon in `src/data` gets a sensible model without anyone drawing one.
+   */
+  readonly gun: {
+    readonly adsZoom: number
+    readonly emoji: string
+    readonly melee: boolean
+    readonly automatic: boolean
+    readonly pellets: number
+    readonly splash: number
+    readonly gravity: number
+    readonly overheat: boolean
+    readonly muzzleSpeed: number
+  }
   readonly enemies: readonly EnemyView[]
   readonly bullets: readonly BulletView[]
   readonly cover: readonly CoverView[]

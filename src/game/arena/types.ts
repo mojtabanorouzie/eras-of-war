@@ -447,6 +447,13 @@ export interface ArenaInput {
   reload: boolean
   /** Edge-triggered. The simulation clears it once it has acted. */
   dodge: boolean
+  /**
+   * True while the look deltas come from a stick — a thumb or a gamepad — and
+   * aim assist should therefore apply. The input layer keys this off the last
+   * device that actually moved the view, so a mouse is never assisted and a
+   * phone always is.
+   */
+  assisted: boolean
 }
 
 export function createArenaInput(): ArenaInput {
@@ -460,5 +467,6 @@ export function createArenaInput(): ArenaInput {
     sprint: false,
     reload: false,
     dodge: false,
+    assisted: false,
   }
 }

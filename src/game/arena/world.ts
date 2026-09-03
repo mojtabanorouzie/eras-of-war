@@ -95,12 +95,72 @@ export const CAMERA_FAR = 220
  *  Look sensitivity
  * ------------------------------------------------------------------ */
 
-/** Radians of yaw per unit of full right-stick deflection, per second. */
-export const TOUCH_LOOK_SPEED = 2.6
+/**
+ * Radians of yaw per unit of full right-stick deflection, per second.
+ *
+ * Raised from 2.6 after playtesters reported the game unplayable on phones: at
+ * 2.6 a full about-turn took 1.2 seconds, which against a flanking rusher is a
+ * death sentence. The response curve below is what makes the higher ceiling
+ * safe — small deflections still aim finely.
+ */
+export const TOUCH_LOOK_SPEED = 3.6
 /** Pitch is deliberately slower than yaw — it is the axis you overshoot. */
-export const TOUCH_PITCH_SPEED = 1.7
+export const TOUCH_PITCH_SPEED = 2.3
+
+/**
+ * Response curve on the touch aim stick. Above 1 means small pushes turn
+ * slowly. Same reasoning as PAD_LOOK_CURVE: a linear stick forces a choice
+ * between turning fast and aiming precisely, and a curve grants both. Gentler
+ * than the pad's, because glass gives a thumb a longer, finer throw than a
+ * physical stick's spring allows.
+ */
+export const TOUCH_LOOK_CURVE = 1.8
+
 /** Radians per CSS pixel of mouse movement. */
 export const MOUSE_SENSITIVITY = 0.0027
+
+/* ------------------------------------------------------------------ *
+ *  Aim assist
+ * ------------------------------------------------------------------ */
+
+/**
+ * Assist exists because a thumb is not a mouse. Every serious mobile shooter
+ * ships it, and the two playtesters who called this game unplayable on a phone
+ * were reporting its absence. It has two parts, both applied in the simulation
+ * so a replayed fight replays identically:
+ *
+ *   FRICTION — while the aim ray is angularly close to an enemy, incoming look
+ *   deltas are scaled down, so the crosshair "sticks" as it crosses a target
+ *   instead of skating past it. This is the part that makes tracking possible.
+ *
+ *   MAGNETISM — while the trigger is held, the view is eased a little toward
+ *   the nearest target inside a tight cone, correcting the last few degrees a
+ *   thumb cannot. It never acquires targets on its own: outside the cone it
+ *   does nothing, so it aids a shot the player already lined up.
+ *
+ * Neither applies to a mouse (`ArenaInput.assisted` is set by the input layer
+ * per look source): a mouse can already do both, and assisted mouse aim reads
+ * as the game wrestling the cursor.
+ */
+
+/** Targets further than this get no assist — the player is not "on" them. */
+export const ASSIST_RANGE = 34
+
+/** Half-angle inside which friction engages. Wide enough to catch a pass-over. */
+export const ASSIST_FRICTION_CONE = 0.12
+
+/** What friction multiplies look deltas by. Lower is stickier. */
+export const ASSIST_FRICTION = 0.45
+
+/** Half-angle inside which magnetism pulls. Deliberately tighter than friction. */
+export const ASSIST_PULL_CONE = 0.085
+
+/**
+ * Exponential approach rate toward the target while firing, per second.
+ * At 4.5 the view closes about a third of the remaining error each tenth of a
+ * second — enough to finish a lined-up shot, never enough to feel steered.
+ */
+export const ASSIST_PULL_RATE = 4.5
 
 /**
  * A gamepad turns faster than a thumb.
